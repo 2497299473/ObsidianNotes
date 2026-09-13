@@ -1,0 +1,15 @@
+# .dockerignore
+# 对应 DockerNew 第 4 章：构建上下文优化
+__pycache__
+*.pyc
+.env
+.env.*
+.git
+.venv
+venv
+*.md
+Dockerfile*
+docker-compose*.yml
+compose*.yaml
+.dockerignore
+init.sql

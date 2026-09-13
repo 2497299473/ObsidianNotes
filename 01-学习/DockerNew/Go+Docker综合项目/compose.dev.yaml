@@ -1,0 +1,30 @@
+# 开发环境覆盖配置
+# 对应 DockerNew 第 7 章：多环境配置 + Compose Watch 热更新
+# 用法: docker compose -f compose.yaml -f compose.dev.yaml up -d
+
+services:
+  api:
+    build:
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8080:8080"
+    environment:
+      - GIN_MODE=debug
+    volumes:
+      # Bind Mount 挂载源码，实现热更新
+      - .:/app:cached
+    develop:
+      watch:
+        # Go 源码变化 → 重建并重启
+        - action: rebuild
+          path: ./main.go
+        - action: rebuild
+          path: ./go.mod
+
+  db:
+    ports:
+      - "5432:5432"       # 开发暴露数据库端口方便调试
+
+  cache:
+    ports:
+      - "6379:6379"       # 开发暴露 Redis 端口

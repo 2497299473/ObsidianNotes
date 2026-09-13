@@ -1,0 +1,16 @@
+# ===== 单阶段构建（反面教材） =====
+# 对应 DockerNew 第 8 章：传统构建产物臃肿
+# 问题：Go 编译器、源码、中间文件全部留在镜像里
+# 镜像大小：~850MB
+
+FROM golang:1.22
+
+WORKDIR /app
+
+COPY go.mod ./
+COPY main.go ./
+
+RUN go build -o server .
+
+EXPOSE 8080
+CMD ["./server"]

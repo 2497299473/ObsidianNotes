@@ -1,0 +1,54 @@
+# Prometheus 抓取配置（完整版）
+# 对应 DockerNew 第 10 章：容器监控 + 数据库/缓存/容器指标 + 链路追踪
+# 全局抓取间隔：15 秒
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: "go-todo-api"
+
+# 抓取目标
+scrape_configs:
+  # 1. Go API 指标（HTTP 请求速率、延迟分布、DB 操作计数）
+  - job_name: "go-api"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:8080"]
+        labels:
+          service: "go-todo-api"
+          env: "dev"
+
+  # 2. Prometheus 自身指标
+  - job_name: "prometheus"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # 3. PostgreSQL 内部指标（连接数、事务速率、缓存命中率、表大小）
+  - job_name: "postgres"
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+        labels:
+          service: "postgresql"
+
+  # 4. Redis 内部指标（内存使用、键数、命中率、命令速率）
+  - job_name: "redis"
+    static_configs:
+      - targets: ["redis-exporter:9121"]
+        labels:
+          service: "redis"
+
+  # 5. cAdvisor — Docker 容器指标（CPU/内存/网络/文件系统）
+  - job_name: "cadvisor"
+    static_configs:
+      - targets: ["cadvisor:8080"]
+        labels:
+          service: "docker-containers"
+
+  # 6. Jaeger 自身指标（trace 吞吐量、延迟）
+  - job_name: "jaeger"
+    static_configs:
+      - targets: ["jaeger:14269"]
+        labels:
+          service: "jaeger"

@@ -1,0 +1,20 @@
+# 开发用 Dockerfile（带 air 热更新工具）
+# 对应 DockerNew 第 7 章：Compose Watch 热更新
+# 不做多阶段构建，直接用完整 Go 镜像，方便调试
+
+FROM golang:1.22-alpine
+
+WORKDIR /app
+
+# 安装 air（Go 热更新工具）
+RUN go install github.com/air-verse/air@latest
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+EXPOSE 8080
+
+# 使用 air 热更新
+CMD ["air", "--build.cmd", "go build -o /tmp/server .", "--build.bin", "/tmp/server"]

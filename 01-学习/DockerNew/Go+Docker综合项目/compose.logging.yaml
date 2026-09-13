@@ -1,0 +1,95 @@
+# ELK 日志收集叠加配置
+# 对应 DockerNew 第 10 章：容器日志收集
+# 用法: docker compose -f compose.yaml -f compose.monitoring.yaml -f compose.logging.yaml up -d
+# 叠加在 compose.yaml + compose.monitoring.yaml 之上
+# 访问:
+#   Kibana         http://localhost:5601
+#   Elasticsearch  http://localhost:9200
+#
+# 架构: 容器 stdout/stderr → Filebeat（自动发现）→ Logstash（解析）→ Elasticsearch（存储）→ Kibana（可视化）
+
+services:
+  # ===== Elasticsearch — 日志存储与搜索 =====
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+    container_name: go-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  # ===== Logstash — 日志解析与转换 =====
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.13.4
+    container_name: go-logstash
+    volumes:
+      - ./elk/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./elk/logstash/pipeline/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+    ports:
+      - "5044:5044"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9600 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # ===== Kibana — 日志可视化 =====
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.4
+    container_name: go-kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:5601/api/status || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+    restart: unless-stopped
+
+  # ===== Filebeat — 容器日志采集 =====
+  # 通过 Docker Socket 自动发现运行中的容器，采集 stdout/stderr 日志
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.13.4
+    container_name: go-filebeat
+    user: root
+    volumes:
+      - ./elk/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      logstash:
+        condition: service_started
+    networks:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  es-data:

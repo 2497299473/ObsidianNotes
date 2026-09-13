@@ -1,0 +1,15 @@
+# .dockerignore
+# 对应 DockerNew 第 4 章：构建上下文优化三大作用
+# ① 减小上下文  ② 防止缓存失效  ③ 防止密钥泄露
+__pycache__
+*.pyc
+.env
+.env.*
+.git
+.venv
+venv
+*.md
+Dockerfile*
+docker-compose*.yml
+compose*.yaml
+.dockerignore

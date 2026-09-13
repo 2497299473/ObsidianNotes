@@ -1,0 +1,23 @@
+{{- if and .Values.monitoring.enabled .Values.monitoring.serviceMonitor.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "go-todo-api.fullname" . }}
+  labels:
+    {{- include "go-todo-api.labels" . | nindent 4 }}
+    # release 标签: 供 kube-prometheus-stack 的 Prometheus 自动发现
+    # 如果使用独立部署的 Prometheus Operator，可能需要调整此标签
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      {{- include "go-todo-api.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.monitoring.serviceMonitor.interval | default "15s" }}
+      scrapeTimeout: {{ .Values.monitoring.serviceMonitor.scrapeTimeout | default "10s" }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+{{- end }}

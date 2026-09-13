@@ -1,0 +1,35 @@
+# 链路追踪叠加配置（Jaeger + OpenTelemetry）
+# 对应 DockerNew 第 10 章：分布式追踪
+# 用法: docker compose -f compose.yaml -f compose.monitoring.yaml -f compose.tracing.yaml up -d
+# 叠加在 compose.yaml + compose.monitoring.yaml 之上
+# 访问:
+#   Jaeger UI  http://localhost:16686
+#   API 自动发送 trace 到 jaeger:4318（OTLP HTTP）
+
+services:
+  # 给 api 服务注入 OTel 环境变量（告诉 Go 代码 trace 发到哪）
+  api:
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=jaeger:4318
+      - OTEL_SERVICE_NAME=go-todo-api
+
+  # ===== Jaeger All-in-One =====
+  # 集成 collector + query UI，适合开发/测试
+  # 生产环境应使用 Jaeger + Elasticsearch/Tempo 作为后端存储
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    container_name: go-jaeger
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "16686:16686"     # Jaeger UI
+      - "4318:4318"       # OTLP HTTP（Go API 发送 trace 到此端口）
+      - "14269:14269"     # 内部 metrics（供 Prometheus 抓取）
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:16686/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped

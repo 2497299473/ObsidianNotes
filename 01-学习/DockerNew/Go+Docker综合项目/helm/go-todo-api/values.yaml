@@ -1,0 +1,171 @@
+# Default values for go-todo-api Helm Chart
+# 对应 DockerNew 第 10 章 + K8SLearningByDocker 迁移路径
+# 安装前需更新子 chart 依赖: helm dependency update ./helm/go-todo-api
+# 安装: helm install go-todo-api ./helm/go-todo-api
+# 开发: helm install go-todo-api ./helm/go-todo-api -f values-dev.yaml
+# 生产: helm install go-todo-api ./helm/go-todo-api -f values-prod.yaml
+
+# ===== 镜像 =====
+image:
+  repository: ghcr.io/summer/go-todo-api
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# ===== 副本数 =====
+replicaCount: 2
+
+# ===== ServiceAccount =====
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# ===== Pod 注解（Prometheus 自动发现）=====
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8080"
+  prometheus.io/path: "/metrics"
+
+# ===== 安全上下文（对应 DockerNew 09 章：非 root + 只读）=====
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+
+# ===== Service =====
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+# ===== Ingress（对应 Docker Compose 中的 Nginx 反向代理）=====
+ingress:
+  enabled: false
+  className: nginx
+  annotations:
+    # 不要加 rewrite-target 注解：path / + Prefix 已经直通，
+    # 加了它反而会把所有 URI 重写成 /，导致 /api/* 不可达
+    nginx.ingress.kubernetes.io/limit-rps: "10"
+    nginx.ingress.kubernetes.io/limit-burst: "20"
+  hosts:
+    - host: api.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# ===== 环境变量（非敏感，对应 DockerNew 10 章：OTel 链路追踪）=====
+env:
+  GIN_MODE: release
+  PORT: "8080"
+  OTEL_EXPORTER_OTLP_ENDPOINT: ""
+  OTEL_SERVICE_NAME: go-todo-api
+
+# ===== 资源限制（对应 DockerNew 09 章）=====
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 250m
+    memory: 128Mi
+
+# ===== HPA 自动扩缩容 =====
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# ===== 健康检查探针 =====
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8080
+  initialDelaySeconds: 15
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# ===== 节点调度 =====
+nodeSelector: {}
+tolerations: []
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - go-todo-api
+          topologyKey: kubernetes.io/hostname
+
+# ===== 监控（Prometheus Operator ServiceMonitor）=====
+monitoring:
+  enabled: false
+  serviceMonitor:
+    enabled: false
+    interval: 15s
+    scrapeTimeout: 10s
+
+# ===== PostgreSQL 子 chart（Bitnami）=====
+postgresql:
+  enabled: true
+  auth:
+    username: app
+    password: devpass
+    database: appdb
+  primary:
+    persistence:
+      enabled: true
+      size: 5Gi
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 512Mi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+
+# ===== Redis 子 chart（Bitnami）=====
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: true
+      size: 2Gi
+    resources:
+      limits:
+        cpu: 250m
+        memory: 128Mi
+      requests:
+        cpu: 100m
+        memory: 64Mi

@@ -1,0 +1,38 @@
+# Jaeger 生产环境配置参考
+# 对应 DockerNew 第 10 章：分布式链路追踪
+# 当前 compose.tracing.yaml 使用 Jaeger all-in-one（开发/测试，内存存储，重启丢失）
+# 生产环境应使用 Jaeger Collector + Elasticsearch/Tempo 后端存储
+#
+# 本文件仅供参考，不被 Compose 直接挂载
+# 生产部署时取消注释并替换 all-in-one 镜像
+
+# ===== 生产环境 Jaeger Collector 配置 =====
+# collector:
+#   otlp:
+#     enabled: true
+#     grpc:
+#       host-port: ":4317"
+#     http:
+#       host-port: ":4318"
+#
+# storage:
+#   type: elasticsearch
+#   es:
+#     server-urls: http://elasticsearch:9200
+#     index-prefix: jaeger-traces
+#     # TLS 配置（生产环境必须）
+#     # tls:
+#     #   enabled: true
+#     #   ca: /path/to/ca.pem
+
+# ===== 开发环境（当前使用）=====
+# all-in-one:
+#   - COLLECTOR_OTLP_ENABLED=true
+#   - 内存存储，重启后 trace 丢失
+#   - 适合开发调试，不适合生产
+#
+# 生产环境迁移步骤：
+# 1. 将 all-in-one 替换为 jaeger-collector + jaeger-query
+# 2. 配置 Elasticsearch 作为后端存储
+# 3. Go API 的 OTEL_EXPORTER_OTLP_ENDPOINT 指向 jaeger-collector:4318
+# 4. 可选：配置 sampling rate（AlwaysSample → TraceIDRatioBased 0.1）

@@ -1,0 +1,27 @@
+# 极致瘦身：scratch 基础镜像（0MB）
+# 对应 DockerNew 08 章：基础镜像选择
+# CGO_ENABLED=0 静态编译的二进制不需要任何基础库
+# 最终镜像大小 = 二进制本身（~8MB）
+
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /app
+COPY go.mod ./
+RUN go mod download
+COPY main.go ./
+
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags="-s -w" \
+    -o /app/server .
+
+# scratch = 空镜像（0MB）
+FROM scratch
+
+# 复制 CA 证书（HTTPS 需要）
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+COPY --from=builder /app/server /server
+
+EXPOSE 8080
+
+ENTRYPOINT ["/server"]

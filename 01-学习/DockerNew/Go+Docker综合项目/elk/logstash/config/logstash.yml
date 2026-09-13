@@ -1,0 +1,12 @@
+# Logstash 运行时配置
+# 对应 DockerNew 第 10 章：ELK 日志收集
+# 监听端口 5044 接收 Filebeat 发送的日志
+
+http.host: "0.0.0.0"
+http.port: 9600
+
+# 管道配置文件目录
+path.config: /usr/share/logstash/pipeline
+
+# 禁用 X-Pack 监控（单机开发环境不需要）
+xpack.monitoring.enabled: false

@@ -1,0 +1,11 @@
+# 开发环境覆盖配置
+# 对应 DockerNew 第 7 章：多环境配置 + Bind Mount 热更新
+# 用法: docker compose -f compose.yaml -f compose.dev.yaml up -d
+
+services:
+  web:
+    volumes:
+      # Bind Mount 挂载源码，修改 app.py 后立即生效
+      - ./app.py:/app/app.py:ro
+    environment:
+      - FLASK_DEBUG=1

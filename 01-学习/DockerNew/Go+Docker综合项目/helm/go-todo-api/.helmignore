@@ -1,0 +1,27 @@
+# Helm 打包忽略文件
+# 对应 K8SLearningByDocker 路径：Docker Compose → K8S 迁移
+
+# 版本控制
+.git
+.gitignore
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# 临时文件
+*.tgz
+*.tar.gz
+tmp/
+temp/
+
+# 项目文件（不需要打包进 Chart）
+OWNERS
+docs/
+test/
+tests/

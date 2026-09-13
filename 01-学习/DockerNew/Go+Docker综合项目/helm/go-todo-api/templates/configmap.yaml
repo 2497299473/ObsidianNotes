@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "go-todo-api.fullname" . }}-config
+  labels:
+    {{- include "go-todo-api.labels" . | nindent 4 }}
+data:
+  GIN_MODE: {{ .Values.env.GIN_MODE | quote }}
+  PORT: {{ .Values.env.PORT | quote }}
+  OTEL_EXPORTER_OTLP_ENDPOINT: {{ .Values.env.OTEL_EXPORTER_OTLP_ENDPOINT | quote }}
+  OTEL_SERVICE_NAME: {{ .Values.env.OTEL_SERVICE_NAME | quote }}

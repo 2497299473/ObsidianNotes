@@ -1,0 +1,71 @@
+# .dockerignore
+# 对应 DockerNew 第 4 章：构建上下文优化三大作用
+# ① 减小上下文  ② 防止缓存失效  ③ 防止密钥泄露
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Go 构建产物
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+server
+/tmp/
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# 环境变量（含密钥）
+.env
+.env.*
+!.env.example
+
+# 文档和配置
+*.md
+docs/
+Dockerfile*
+docker-compose*.yml
+compose*.yaml
+.dockerignore
+
+# GitHub CI/CD 和社区文件（不需要进生产镜像）
+.github/
+LICENSE
+CHANGELOG.md
+CONTRIBUTING.md
+
+# 监控配置（开发用，不需要进生产镜像）
+prometheus/
+grafana/
+nginx/
+
+# 日志收集（开发用）
+elk/
+
+# 链路追踪（开发用）
+jaeger/
+
+# K8S 部署（不需要进镜像）
+helm/
+
+# 测试
+*_test.go
+testdata/
+tests/
+coverage/
+
+# OS 文件
+.DS_Store
+Thumbs.db
+
+# 依赖缓存
+vendor/

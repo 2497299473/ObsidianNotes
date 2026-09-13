@@ -1,0 +1,77 @@
+# 生产环境覆盖配置
+# 安装: helm install go-todo-api ./helm/go-todo-api -f values-prod.yaml
+# 特点: 三副本、release 模式、HPA、ServiceMonitor、TLS
+
+replicaCount: 3
+
+image:
+  pullPolicy: Always
+  tag: "1.0.0"
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    # 不要加 rewrite-target 注解：path / + Prefix 已经直通，
+    # 加了它反而会把所有 URI 重写成 /，导致 /api/* 不可达
+    nginx.ingress.kubernetes.io/limit-rps: "10"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: api.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: api-tls
+      hosts:
+        - api.example.com
+
+env:
+  GIN_MODE: release
+  PORT: "8080"
+  # 注意：otlptracehttp.WithEndpoint() 只接受 host:port，不能带 http:// scheme
+  OTEL_EXPORTER_OTLP_ENDPOINT: "jaeger-collector:4318"
+  OTEL_SERVICE_NAME: go-todo-api
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 512Mi
+  requests:
+    cpu: 500m
+    memory: 256Mi
+
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+
+postgresql:
+  primary:
+    persistence:
+      size: 20Gi
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 1Gi
+      requests:
+        cpu: 500m
+        memory: 512Mi
+
+redis:
+  master:
+    persistence:
+      size: 5Gi
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 250m
+        memory: 128Mi

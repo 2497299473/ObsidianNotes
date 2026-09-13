@@ -1,0 +1,29 @@
+Thank you for installing {{ .Chart.Name }}.
+
+Your release is named {{ .Release.Name }}.
+
+To verify the API is running:
+
+  $ kubectl get pods -l app.kubernetes.io/name={{ include "go-todo-api.name" . }}
+  $ kubectl port-forward svc/{{ include "go-todo-api.fullname" . }} 8080:{{ .Values.service.port }}
+  $ curl http://localhost:8080/health
+
+{{- if .Values.ingress.enabled }}
+
+Access via Ingress:
+  http{{ if .Values.ingress.tls }}s{{ end }}://{{ (index .Values.ingress.hosts 0).host }}
+{{- else }}
+
+Access via port-forward:
+  $ kubectl port-forward svc/{{ include "go-todo-api.fullname" . }} 8080:{{ .Values.service.port }}
+{{- end }}
+
+View logs:
+  $ kubectl logs -f -l app.kubernetes.io/name={{ include "go-todo-api.name" . }}
+
+Check HPA:
+  $ kubectl get hpa
+
+Test API:
+  $ curl http://localhost:8080/health
+  $ curl http://localhost:8080/api/todos

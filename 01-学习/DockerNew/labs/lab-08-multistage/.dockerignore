@@ -1,0 +1,27 @@
+# .dockerignore
+# 对应 DockerNew 第 4 章：构建上下文优化
+# ① 减小上下文  ② 防止缓存失效  ③ 防止密钥泄露
+.git
+.gitignore
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+server
+/tmp/
+.vscode
+.idea
+*.swp
+*.swo
+.env
+.env.*
+*.md
+Dockerfile*
+docker-compose*.yml
+compose*.yaml
+.dockerignore
+.DS_Store
+Thumbs.db

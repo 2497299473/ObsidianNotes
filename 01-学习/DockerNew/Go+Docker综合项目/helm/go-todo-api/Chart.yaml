@@ -1,0 +1,31 @@
+apiVersion: v2
+name: go-todo-api
+description: Go TODO API 微服务 Helm Chart — 对应 DockerNew 第 10 章 + K8SLearningByDocker 迁移路径
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+kubeVersion: ">=1.25.0-0"
+home: https://github.com/summer/go-todo-api
+sources:
+  - https://github.com/summer/go-todo-api
+maintainers:
+  - name: Summer
+keywords:
+  - go
+  - docker
+  - todo
+  - api
+  - postgresql
+  - redis
+  - prometheus
+  - jaeger
+
+dependencies:
+  - name: postgresql
+    version: 15.x.x
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled
+  - name: redis
+    version: 19.x.x
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled

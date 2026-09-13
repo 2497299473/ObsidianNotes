@@ -1,0 +1,7 @@
+{
+  "syncMode": "strict",
+  "conflictStrategy": "latest-timestamp",
+  "confirmBeforeSync": true,
+  "realtimeSync": false,
+  "autoSyncIntervalSeconds": 0
+}

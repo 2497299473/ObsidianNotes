@@ -1,0 +1,45 @@
+# Filebeat 配置 — Docker 容器日志自动采集
+# 对应 DockerNew 第 10 章：容器日志收集
+# 架构: Docker stdout/stderr → Filebeat(自动发现) → Logstash:5044 → Elasticsearch
+# 通过 Docker Socket 自动发现运行中的容器
+
+# 注意：不要同时配置全量 glob 的静态 container input，
+# 否则 go-* 容器日志会与下面的 autodiscover 模板重复采集
+
+# 自动发现：根据容器标签动态配置
+filebeat.autodiscover:
+  providers:
+    - type: docker
+      hints.enabled: true
+      templates:
+        # 匹配 go- 前缀的容器
+        - condition:
+            contains:
+              docker.container.name: "go-"
+          config:
+            - type: container
+              paths:
+                - "/var/lib/docker/containers/${data.docker.container.id}/*.log"
+
+# 全局处理器
+processors:
+  # 添加 Docker 元数据（容器名、镜像、标签）
+  - add_docker_metadata:
+      host: "unix:///var/run/docker.sock"
+  # 去除不必要的字段
+  - drop_fields:
+      fields: ["agent.ephemeral_id", "agent.id", "agent.type", "agent.version",
+               "ecs.version", "input.type", "log.offset"]
+
+# 输出到 Logstash
+output.logstash:
+  hosts: ["logstash:5044"]
+
+# 索引清理（7 天自动删除）
+path.data: /var/lib/filebeat/data
+path.logs: /var/log/filebeat
+
+# 日志级别
+logging.level: info
+logging.to_files: false
+logging.to_stderr: true

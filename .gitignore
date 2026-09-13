@@ -1,0 +1,38 @@
+# Python 运行产物
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Node / 前端构建产物
+node_modules/
+dist/
+build/
+
+# Rust 构建产物
+target/
+
+# 环境变量与系统文件
+.env
+.DS_Store
+Thumbs.db
+
+# 敏感配置（含 API Key / token，禁止入库）
+.mcp.json
+
+# Obsidian 本地状态与插件体积文件
+.trash/
+.obsidian/workspace.json
+.obsidian/workspace.json.bak*
+.obsidian/plugins/
+
+# 本地 AI / 同步工具会话与缓存
+.claudian/
+.agents/
+.opensquilla/
+.claude/
+memory/
