@@ -106,6 +106,17 @@ status: 📝 待处理
 - 更新索引：如果在一个领域新增了笔记，同步更新该领域的 `*总览索引.md` 中的表格
 - 跨领域引用：用 Wiki-link 直接链接，不要复制内容
 
+## Git 与 GitHub
+
+- 本 vault 已绑定远程仓库：`https://github.com/2497299473/ObsidianNotes.git`（分支 `master`）
+- 默认远程名：`origin`
+- 当用户说「上传到 GitHub」时，执行整理并推送：
+  1. `git status` / `git pull --rebase origin master`（先拉取，发现冲突先提醒用户，不要强推）
+  2. `git add` 笔记与项目内容（遵守 `.gitignore`，勿提交 `.mcp.json` 等敏感文件）
+  3. `git commit` 后 `git push origin master`
+- 有冲突时：停下并提醒用户，列出冲突文件，等用户决定如何处理
+- 不要擅自改远程分支名、不要 force push
+
 ## 不要做的事
 
 - 不要在 vault 根目录随意创建散落的 .md 文件（除非是临时草稿）
