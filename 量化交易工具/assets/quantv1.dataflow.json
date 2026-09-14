@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "QuantV1 数据流",
+    "subtitle": "archify 一次性渲染（render · 无 watcher）· 依赖来自 import 反查实测 2026-09-14",
+    "output": "D:/archq/ir/quantv1-dataflow.html",
+    "viewBox": [1480, 820],
+    "animation": "trace",
+    "visual_preset": "signal-flow",
+    "quality_profile": "standard"
+  },
+  "stages": [
+    { "label": "外部数据源" },
+    { "label": "采集层" },
+    { "label": "本地仓 + 读数" },
+    { "label": "特征 / 模型 / 因子" },
+    { "label": "决策与验证" }
+  ],
+  "nodes": [
+    { "id": "em-nav", "type": "external", "label": "天天基金", "sublabel": "lsjz / pingzhong", "width": 130, "stage": 0, "row": 0 },
+    { "id": "em-sector", "type": "external", "label": "东财板块", "sublabel": "板块 K 线页", "stage": 0, "row": 1 },
+    { "id": "sina", "type": "external", "label": "新浪备用", "sublabel": "备用行情", "stage": 0, "row": 2 },
+
+    { "id": "netutil", "type": "backend", "label": "netutil", "sublabel": "重试 · 频控", "stage": 1, "row": 0 },
+    { "id": "pullers", "type": "backend", "label": "klines 拉取", "sublabel": "pull x4", "width": 130, "stage": 1, "row": 1 },
+    { "id": "probes", "type": "backend", "label": "probe 探测", "sublabel": "源可用性 x2", "width": 130, "stage": 1, "row": 2 },
+
+    { "id": "cache", "type": "database", "label": "data/", "sublabel": "klines · models · registry", "width": 170, "stage": 2, "row": 0 },
+    { "id": "loader", "type": "backend", "label": "data_loader", "sublabel": "统一读数 · 8 引用", "width": 140, "tag": "读数层", "stage": 2, "row": 1 },
+
+    { "id": "fcast", "type": "backend", "label": "forecast", "sublabel": "forecast_engine · 9", "width": 150, "stage": 3, "row": 0 },
+    { "id": "pathf", "type": "backend", "label": "path_forecast", "sublabel": "路径分布", "width": 130, "stage": 3, "row": 1 },
+    { "id": "sig", "type": "backend", "label": "signal_engine", "sublabel": "因子 → 信号", "width": 130, "stage": 3, "row": 2 },
+    { "id": "chan", "type": "backend", "label": "chanlun", "sublabel": "lookthrough 穿透", "width": 140, "stage": 3, "row": 3 },
+    { "id": "intra", "type": "backend", "label": "intraday", "sublabel": "分钟特征 x3", "width": 130, "stage": 3, "row": 4 },
+
+    { "id": "run", "type": "backend", "label": "run.py", "sublabel": "决策编排 · notify", "width": 140, "stage": 4, "row": 0 },
+    { "id": "out", "type": "database", "label": "output/", "sublabel": "报告 · 日志 128", "width": 140, "stage": 4, "row": 1 },
+    { "id": "bt", "type": "backend", "label": "backtest x16", "sublabel": "离线验证 · 胶水层", "width": 150, "tag": "ponytail lite 适用", "stage": 4, "row": 2 }
+  ],
+  "flows": [
+    { "id": "e01", "from": "em-nav", "to": "netutil", "label": "净值 API" },
+    { "id": "e02", "from": "em-sector", "to": "pullers", "label": "板块页" },
+    { "id": "e03", "from": "sina", "to": "pullers", "label": "备用", "variant": "dashed" },
+    { "id": "e04", "from": "netutil", "to": "cache", "label": "JSON 落盘" },
+    { "id": "e05", "from": "pullers", "to": "cache", "label": "写 klines" },
+    { "id": "e06", "from": "probes", "to": "cache", "label": "探测缓存", "variant": "dashed" },
+    { "id": "e07", "from": "cache", "to": "loader", "label": "读数", "variant": "emphasis", "labelAt": [530, 200] },
+    { "id": "e08", "from": "loader", "to": "fcast", "label": "行情矩阵" },
+    { "id": "e09", "from": "loader", "to": "pathf", "label": "OHLC" },
+    { "id": "e10", "from": "loader", "to": "sig", "label": "因子输入" },
+    { "id": "e11", "from": "loader", "to": "chan", "label": "日线" },
+    { "id": "e12", "from": "loader", "to": "intra", "label": "分钟切片" },
+    { "id": "e13", "from": "fcast", "to": "run", "label": "预测分布", "variant": "emphasis" },
+    { "id": "e14", "from": "sig", "to": "run", "label": "信号", "labelDy": -10 },
+    { "id": "e15", "from": "intra", "to": "run", "label": "快照", "labelDy": -20 },
+    { "id": "e16", "from": "fcast", "to": "bt", "label": "预测口径", "labelDy": 16 },
+    { "id": "e17", "from": "pathf", "to": "bt", "label": "分位", "labelDy": 22 },
+    { "id": "e18", "from": "chan", "to": "bt", "label": "形态" },
+    { "id": "e19", "from": "run", "to": "out", "label": "决策报告", "variant": "emphasis", "labelAt": [960, 200] },
+    { "id": "e20", "from": "bt", "to": "out", "label": "回测落盘" }
+  ]
+}

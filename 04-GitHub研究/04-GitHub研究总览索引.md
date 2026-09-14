@@ -76,7 +76,7 @@ lark_doc_url: ""
 | **OpenMAIC** | 教育编排 | 清华多 Agent 互动课堂 | ★★ | MIT | Next+LangGraph | 架构参考价值高 | A | [[04-GitHub研究/OpenMAIC/OpenMAIC 项目笔记]] |
 | **EigenFlux** | Agent 通信 | 广播/信息流/交易网络 | ★ | — | Go | 已接入·无深度结论 | B | [[04-GitHub研究/EigenFlux/EigenFlux 项目笔记]] |
 | **Capability-Router** | 入库 SOP | 项目卡 + 五级状态 + 薄路由 | ★★★ | MIT | Markdown | **本索引即其落地** | A | [[04-GitHub研究/GitHub入库与能力路由/Table-GitHub-Capability-Router项目笔记]] |
-| **archify** | 代码理解·出图 | Agent 生成**可验证**架构/流程/时序/数据流图（自包含 HTML） | ★★★ | MIT | JS | 候选·建议建档 | C | [[04-GitHub研究/AI周报-20260914/AI周报-20260914 核验笔记#二、开源仓库核验表（2026-09-14 1054 实测）]] 60,953★ |
+| **archify** | 代码理解·出图 | Agent 生成**可验证**架构/流程/时序/数据流图（自包含 HTML） | ★★★ | MIT | JS | **已实测·出图入库**；⚠️#310：8.3 短名路径 preview 必崩，本机只用 render | A | [[量化交易工具/QuantV1数据流图-archify实测与310复现-20260914]] |
 | **ponytail** | Skills·HOW（减法） | 让 Agent 像「最懒资深工程师」写代码，能不写就不写 | ★★★ | MIT | JS | **已落地 lite 档**（QuantV1/AGENTS.md） | C | 同上笔记 137,441★ |
 | **gods-eye-view** | 采集/OSINT | 浏览器内真实数据卫星仿真 + 3D 地球 | ★ | ⚠️ NOASSERTION | JS | **冷藏·协议未明** | C | 同上笔记 32,073★ |
 
