@@ -27,9 +27,9 @@ lark_doc_url: ""
 | **采集 / 上游供料** | 把外部数据变成 Agent 可用素材 | MyContext · Firecrawl · pdf-inspector · huashu-chrome · ego-lite |
 | **记忆 / 上下文存取** | 长期记住、组织、取回 | OpenViking · TencentDB Agent Memory · mnemosyne · ai-memory |
 | **上下文压缩 / 省 token** | 传输前砍冗余，可逆 | Headroom |
-| **代码理解 / 图谱** | 调用链、影响面、外科手术式上下文 | CodeGraph |
+| **代码理解 / 图谱** | 调用链、影响面、外科手术式上下文 | CodeGraph · archify（下游出图） |
 | **Agent 运行时 / 编排** | 多 Agent 执行、通道、会话 | OpenSquilla · AgentScope · herdr · HarnessX |
-| **Skills / 方法论剧本** | 身份（WHO）与流程（HOW） | agency-agents · agent-skills · mattpocock · book-to-skill · reverse-skill · i-have-adhd |
+| **Skills / 方法论剧本** | 身份（WHO）与流程（HOW） | agency-agents · agent-skills · mattpocock · book-to-skill · reverse-skill · i-have-adhd · ponytail（做减法） |
 | **前端设计能力** | 生成 / 质检 / 路由 | UI/UX Pro Max · Impeccable · UI Skills · Astryx |
 | **金融 / ML 模型** | 量化、行情、K 线基础模型 | Kronos |
 | **教育 / 学习产品** | 课程生成、苏格拉底对话 | OpenMAIC · Socratopia（在 03） |
@@ -66,7 +66,7 @@ lark_doc_url: ""
 | **agency-agents** | Skills·WHO | 281 人格卡，18 部门 | ★★ | MIT | Markdown | **已部署** | A | [[04-GitHub研究/agency-agents/Agency Agents 使用手册]] |
 | **agent-skills (Osmani)** | Skills·HOW | 24 工程 SOP + 反合理化 + 验证门 | ★★★ | MIT | Markdown | **已部署** | A | [[04-GitHub研究/agency-agents/三大 AI Skills 项目对比分析]] |
 | **mattpocock/skills** | Skills·HOW | Grilling + 领域建模 + wayfinder | ★★★ | MIT | Markdown | **已部署** | B | 同上对比笔记 |
-| **i-have-adhd** | 输出风格 | ADHD 友好输出（温和版已接） | ★★ | — | — | **已落地** | B | [[04-GitHub研究/i-have-adhd/i-have-adhd 项目笔记]] |
+| **i-have-adhd** | 输出风格 | ADHD 友好输出（温和版已接） | ★★ | MIT | Markdown/Py | **已落地** | B | [[04-GitHub研究/i-have-adhd/i-have-adhd 项目笔记]] |
 | **reverse-skill** | Skills 路由 | 安全逆向技能包 | ★ | — | — | 架构参考·不部署 | B+ | [[04-GitHub研究/reverse-skill/reverse-skill 项目笔记]] |
 | **huashu-chrome** | 浏览器采集 | 真实 Chrome 登录态 + MCP | ★★ | MIT | Win 可跑 | **可启用**（差装扩展） | A | [[04-GitHub研究/huashu-chrome/huashu-chrome 项目笔记]] |
 | **ego-lite** | 浏览器运行时 | Agent 独立 Chromium + Space | ★ | — | **仅 macOS** | Windows 出局·季度盯 | A | [[04-GitHub研究/ego-lite/ego-lite 项目笔记]] |
@@ -76,6 +76,15 @@ lark_doc_url: ""
 | **OpenMAIC** | 教育编排 | 清华多 Agent 互动课堂 | ★★ | MIT | Next+LangGraph | 架构参考价值高 | A | [[04-GitHub研究/OpenMAIC/OpenMAIC 项目笔记]] |
 | **EigenFlux** | Agent 通信 | 广播/信息流/交易网络 | ★ | — | Go | 已接入·无深度结论 | B | [[04-GitHub研究/EigenFlux/EigenFlux 项目笔记]] |
 | **Capability-Router** | 入库 SOP | 项目卡 + 五级状态 + 薄路由 | ★★★ | MIT | Markdown | **本索引即其落地** | A | [[04-GitHub研究/GitHub入库与能力路由/Table-GitHub-Capability-Router项目笔记]] |
+| **archify** | 代码理解·出图 | Agent 生成**可验证**架构/流程/时序/数据流图（自包含 HTML） | ★★★ | MIT | JS | 候选·建议建档 | C | [[04-GitHub研究/AI周报-20260914/AI周报-20260914 核验笔记#二、开源仓库核验表（2026-09-14 1054 实测）]] 60,953★ |
+| **ponytail** | Skills·HOW（减法） | 让 Agent 像「最懒资深工程师」写代码，能不写就不写 | ★★★ | MIT | JS | **已落地 lite 档**（QuantV1/AGENTS.md） | C | 同上笔记 137,441★ |
+| **gods-eye-view** | 采集/OSINT | 浏览器内真实数据卫星仿真 + 3D 地球 | ★ | ⚠️ NOASSERTION | JS | **冷藏·协议未明** | C | 同上笔记 32,073★ |
+
+### 每周热点核验
+
+| 期次 | 内容 | 入口 |
+|------|------|------|
+| 2026-09-14 | 5 仓库实时 star/协议/近 3 周提交核验 + 6 条产品消息**改 4 处错**（Agents API 仅 public beta、猫娘 N.E.K.O.「开源」不成立、Mastra Factory 未核实、Resolve 21.1「AI 助手」措辞存疑）+ 峰谷取数纪律 | [[04-GitHub研究/AI周报-20260914/AI周报-20260914 核验笔记]] |
 
 ### 对比分析笔记（同槽 ≥2 时才新建）
 
