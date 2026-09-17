@@ -81,7 +81,7 @@ class FetchResult:
 
 ## 四、迁移步序（每步可回滚，做完即验）
 
-> **进度（2026-09-17）：步 1、步 2 已落地**
+> **进度（2026-09-17）：步 1~5 代码全部落地；唯一遗留＝步 4「真实东财失败→回落」待授权对拍**
 >
 > **步 1**——`QuantV1/core/datasource/{__init__,base,registry,chain,health}.py`
 > + `providers/` 空目录 + `tests/test_datasource_chain.py`（22 测，含「providers 不得有实现 /
@@ -129,7 +129,16 @@ class FetchResult:
 > sina×东财缓存交叉 mismatch=0。脚本 `experiments/datasource_parity/smoke_step4_sina_20260917.py`。
 > ⚠️ **步 4 验收未全关**：表内「东财失败时回落新浪、`_source` 正确标注」需构造东财真实
 > 失败或对拍，发东财请求受铁律 7 约束 → **待明日 09:30 后人授权**（四闸门 + ≤6 发）。
-> 提交 QuantProject `f6cf4cd`。步 5 未动。
+> **✅ 18:40 步 5 落地，重构方案 5 步代码全部完成**——`signal_engine` 透传 `source`
+> 附加键；`report_generator` 新增 `source_trace_notes()` 作**单一事实源**（落盘报告与
+> 飞书卡片共用，防两处判定漂移）：fresh 且实际源≠东财 → 显式「ℹ️ 数据源切换」；
+> `notify._build_card` 接入同一函数。`data_loader` 在 cache/cache:fallback 命中时
+> **剥除缓存里的 stale `source` 键**（对本次加载已失真，不得混进展示层）。
+> 验证：新增 10 测（三态回归 + 共用判定 + 卡片含切换行 + stale 剥除）+ fast 全量
+> **286/286**，零网络。提交 QuantProject `a431da7`。
+> ⚠️ **全局唯一遗留**：步 4「东财真实失败→链回落 sina」真实验收待发东财请求，
+> 明日（09-18 周五）09:30 后过四闸门 + 人授权再跑（≤3 发）；届时步 5 的换源提示
+> 会自然在报告中亮相（若真发生回落）。
 
 | 步 | 动作 | 风险 | 验收 |
 |---|---|---|---|
@@ -137,7 +146,7 @@ class FetchResult:
 | 2 | ~~迁 `stock_data.py` 三源 → providers~~ **✅ 2026-09-17 已落地** | 低（三源已存在，语义平移） | 离线层已钉（provider 21 测 + fast 252 全过）；**真实逐根对拍待授权** |
 | 3 | ~~迁 `real_time.py` 腾讯源 → provider，失败**留痕**而非静默~~ **✅ 2026-09-17 已落地** | 低（单源） | ✅ 断网返回 `{"_error": …}`（离线 9 测钉死）+ 真实冒烟 6 字段一致 |
 | 4 | 迁 `data_loader.py` 东财源 → provider；`pull_sina_nav.py` 升 `fund_sina` 接链 **🟡 2026-09-17 代码+离线+新浪冒烟已落地** | **中**（首次真正多源） | 东财失败时可回落新浪，`_source` 正确标注——**真实回落验收待授权**（铁律 7） |
-| 5 | 报告层加 source trace，复用 `report_generator.py` 现有 `cache:fallback` 告警分支 | 低 | 飞书推送显示实际来源 |
+| 5 | ~~报告层加 source trace，复用 `report_generator.py` 现有 `cache:fallback` 告警分支~~ **✅ 2026-09-17 已落地** | 低 | ✅ 落盘报告 + 飞书卡片显示实际来源（共用 `source_trace_notes` 判定） |
 
 **测试**：新增 `tests/test_datasource_chain.py`——每源的 成功 / 失败 / 超时 三种链行为 + source trace 正确性。
 现有 `tests/test_netutil.py` 不动。
