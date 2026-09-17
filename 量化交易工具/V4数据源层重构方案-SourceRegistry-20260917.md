@@ -81,15 +81,26 @@ class FetchResult:
 
 ## 四、迁移步序（每步可回滚，做完即验）
 
-> **进度（2026-09-17）：步 1 已落地**——`QuantV1/core/datasource/{__init__,base,registry,chain,health}.py`
+> **进度（2026-09-17）：步 1、步 2 已落地**
+>
+> **步 1**——`QuantV1/core/datasource/{__init__,base,registry,chain,health}.py`
 > + `providers/` 空目录 + `tests/test_datasource_chain.py`（22 测，含「providers 不得有实现 /
 > 包内不得 import 网络库 / 旧模块 import 面不变」三道守护），登记进 `tests/layers.py` fast 层；
-> fast 全量 229/229 通过，旧路径零改动。步 2~5 未动。
+> fast 全量 229/229 通过，旧路径零改动。
+>
+> **步 2**——新增 `core/datasource/symbols.py` 与 `providers/stock_{tencent,eastmoney,tushare}.py`；
+> `base.py` 补失败前缀契约（`network:` / `data:` / `skip:` / `protocol:`）与 `classify_exc()`
+> （按 OSError 家族 + MRO 类名判定，**不 import 网络库**）；`core/stock_data.py` 退化为
+> **装配点 + 缓存层**（对外签名 / 返回形状 / 缓存 schema / 全灭逐源原因文本一字不变）。
+> 验证：provider 离线测例 21/21、fast 全量 252/252、耦合测试 57/57。提交已推 QuantProject。
+> ⚠️ **步 2 验收尚未全部关闭**：表内「与旧实现同参数对拍、K 线逐根一致」需真实拉数，
+> 受项目铁律 7 约束（发东财请求禁止自动开跑）→ 待人显式授权后执行，本轮只关闭了离线分层。
+> 步 3~5 未动。
 
 | 步 | 动作 | 风险 | 验收 |
 |---|---|---|---|
 | 1 | 建 `core/datasource/` 骨架（base/registry/chain/health），**不接任何 provider** | 零（纯新增） | import 通过，旧路径行为不变 |
-| 2 | 迁 `stock_data.py` 三源 → providers | 低（三源已存在，语义平移） | 与旧实现同参数对拍，K 线逐根一致 |
+| 2 | ~~迁 `stock_data.py` 三源 → providers~~ **✅ 2026-09-17 已落地** | 低（三源已存在，语义平移） | 离线层已钉（provider 21 测 + fast 252 全过）；**真实逐根对拍待授权** |
 | 3 | 迁 `real_time.py` 腾讯源 → provider，失败**留痕**而非静默 | 低（单源） | 断网时返回结构带 error 字段 |
 | 4 | 迁 `data_loader.py` 东财源 → provider；把 `pull_sina_nav.py` 升为 `fund_sina` provider 接入链 | **中**（首次真正多源） | 东财失败时可回落新浪，`_source` 正确标注 |
 | 5 | 报告层加 source trace，复用 `report_generator.py` 现有 `cache:fallback` 告警分支 | 低 | 飞书推送显示实际来源 |
