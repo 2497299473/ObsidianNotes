@@ -114,14 +114,29 @@ class FetchResult:
 > **261/261** + 真实冒烟（qt.gtimg.cn 腾讯域、不受铁律 7 约束，总共仅 2 发：
 > 旧 1 + 新 1）600519/000651/000858 **3×6 字段 + 加权估计逐项一致**；
 > 脚本 `experiments/datasource_parity/smoke_step3_realtime_20260917.py`。
-> 步 4~5 未动。
+> **✅ 18:05 步 4 代码+离线层落地**（真实东财回落验收待人授权，见下）——新增
+> `providers/fund_eastmoney.py`（pingzhongdata 解析逐字平移；唯一语义升级：空序列按
+> `data:` 失败处理，旧单源下会静默出空 fresh）与 `providers/fund_sina.py`（升自
+> `experiments/sina_nav_redundant/pull_sina_nav.py`——通路 09-08 实证 + 每日校验背书，
+> 传输改走 netutil，不落盘不校验，纯取数）。`core/data_loader.py` 退化为装配点：
+> `load_fund`/`fetch_pingzhongdata`/`fetch_lsjz` **签名与 `_source` 三态一字不改**，
+> 全链（东财→sina 严格串行）失败才 `cache:fallback`；fresh 新增**附加键**
+> `source`=实际源名（步 5 展示层用，不改三态取值域）；`fetch_lsjz`（申赎，东财 f10 独有）
+> 保持单源不迁移。
+> 验证：离线 15 测（链成功/回落/全灭降级/缓存 TTL 命中/失败分类；`fetch_lsjz` 已 stub
+> 保证零网络）+ fast 全量 **276/276** + 真实冒烟（**仅新浪域、零东财请求，不受铁律 7
+> 约束**）：provider vs 今日 16:01 脚本产物 002112 **2644 条逐条恒等**、
+> sina×东财缓存交叉 mismatch=0。脚本 `experiments/datasource_parity/smoke_step4_sina_20260917.py`。
+> ⚠️ **步 4 验收未全关**：表内「东财失败时回落新浪、`_source` 正确标注」需构造东财真实
+> 失败或对拍，发东财请求受铁律 7 约束 → **待明日 09:30 后人授权**（四闸门 + ≤6 发）。
+> 提交 QuantProject `f6cf4cd`。步 5 未动。
 
 | 步 | 动作 | 风险 | 验收 |
 |---|---|---|---|
 | 1 | 建 `core/datasource/` 骨架（base/registry/chain/health），**不接任何 provider** | 零（纯新增） | import 通过，旧路径行为不变 |
 | 2 | ~~迁 `stock_data.py` 三源 → providers~~ **✅ 2026-09-17 已落地** | 低（三源已存在，语义平移） | 离线层已钉（provider 21 测 + fast 252 全过）；**真实逐根对拍待授权** |
 | 3 | ~~迁 `real_time.py` 腾讯源 → provider，失败**留痕**而非静默~~ **✅ 2026-09-17 已落地** | 低（单源） | ✅ 断网返回 `{"_error": …}`（离线 9 测钉死）+ 真实冒烟 6 字段一致 |
-| 4 | 迁 `data_loader.py` 东财源 → provider；把 `pull_sina_nav.py` 升为 `fund_sina` provider 接入链 | **中**（首次真正多源） | 东财失败时可回落新浪，`_source` 正确标注 |
+| 4 | 迁 `data_loader.py` 东财源 → provider；`pull_sina_nav.py` 升 `fund_sina` 接链 **🟡 2026-09-17 代码+离线+新浪冒烟已落地** | **中**（首次真正多源） | 东财失败时可回落新浪，`_source` 正确标注——**真实回落验收待授权**（铁律 7） |
 | 5 | 报告层加 source trace，复用 `report_generator.py` 现有 `cache:fallback` 告警分支 | 低 | 飞书推送显示实际来源 |
 
 **测试**：新增 `tests/test_datasource_chain.py`——每源的 成功 / 失败 / 超时 三种链行为 + source trace 正确性。
