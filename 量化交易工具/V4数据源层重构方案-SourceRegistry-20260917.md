@@ -1,0 +1,102 @@
+---
+title: V4 数据源层重构方案（SourceRegistry + Fallback Chain）
+created: 2026-09-17
+tags:
+  - 量化交易
+  - 数据源
+  - 架构
+  - QuantV1
+description: 基于 core/ 现有实现的真实接口，给出多源注册表 + 健康度 + fallback 链 + 来源标记的分步重构方案（不改 46 处调用面）
+---
+
+# V4 数据源层重构方案（2026-09-17）
+
+> 参考：FundVal-Live `backend/api/sources/{base,registry}.py`（**AGPL，只读设计不抄码**）、
+> fundviewer `data_sources/fallback.py`（MIT）。
+> 目标：解决「一个数据源 = 一个函数」——现在每加一个源就要改业务函数体。
+
+---
+
+## 一、现状盘点（读源码得出，非印象）
+
+| 文件 | 真实行为 | 缺口 |
+|---|---|---|
+| `core/data_loader.py` | 东财**单源**（pingzhongdata + lsjz）；缓存 TTL 12h；`_source` 三态：`fresh` / `cache` / `cache:fallback(异常)` | 无第二源；降级只有「读缓存」，不是「换源」 |
+| `core/stock_data.py` | **已有事实上的三源链**：腾讯 → 东财 → Tushare，`source` 字段标注，`attempts` 列表累积每源失败原因 | 链**硬编码在 `fetch_stock_kline` 函数体**里；无注册表、无健康度；脚本里 `fetch_stock_kline` 被 6+ 处直接调用 |
+| `core/real_time.py` | 腾讯 `qt.gtimg.cn` 单源；失败**静默返回空 dict**，调用方降级不展示 | 失败无痕迹、无备源 |
+| `core/netutil.py` | 逐 IP failover（v4 优先）/ 无代理 / curl_cffi 指纹兜底 / 东财 cookie 种会话 / 瞬断重试 | **这是 V4 强项，保持不动** |
+| `experiments/sina_nav_redundant/pull_sina_nav.py` | 新浪净值抓取，**仅实验脚本，未进生产链** | 真正的冗余源存量，被埋着 |
+| `core/market_context.py` | 已有 primary/fallback 代理切换 + `proxy_switch` 标记 + Data Quality `degraded` | 这套「降级留痕」思想可直接复用到数据源层 |
+
+**结论**：V4 缺的不是传输层，也不是降级意识，而是**「源」这个对象**——现在源是函数，不是可登记、可排序、可健康记账的实体。
+
+---
+
+## 二、目标结构（最小新增，不改调用面）
+
+```
+core/datasource/                    # 纯新增包
+    __init__.py
+    base.py        # Provider 协议 + FetchResult 契约
+    registry.py    # SourceRegistry：登记 / 排序 / 源级超时 / 健康度
+    chain.py       # fallback 链执行器 + source trace
+    health.py      # 连续失败 → 降级到链尾（进程内，不落盘）
+    providers/
+        fund_eastmoney.py     # 迁 data_loader.fetch_pingzhongdata / fetch_lsjz
+        fund_sina.py          # 提升 experiments/sina_nav_redundant/pull_sina_nav.py
+        stock_tencent.py      # 迁 stock_data._fetch_page
+        stock_eastmoney.py    # 迁 stock_data._fetch_stock_kline_eastmoney
+        stock_tushare.py      # 迁 stock_data._fetch_stock_kline_tushare
+        realtime_tencent.py   # 迁 real_time.fetch_realtime
+```
+
+### 核心契约
+
+```python
+@dataclass(frozen=True)
+class FetchResult:
+    ok: bool
+    source: str                 # 'eastmoney' | 'tencent' | 'sina' | 'tushare' | 'cache'
+    payload: dict | None
+    error: str | None           # 单源失败原因，保持现有 attempts 的可诊断性
+    latency_ms: int
+```
+
+---
+
+## 三、四条硬约束（违反即回滚）
+
+1. **调用面冻结**：`load_fund(code, force_refresh)`、`fetch_stock_kline(code, market, ttl_hours, min_start)`、
+   `fetch_realtime(holdings)`、`weighted_estimate(holdings, quotes)` **签名一律不动**。
+   已核实 46 处调用点（`run.py`、16 个 `backtest_*.py`、`lookthrough.py`、`market_context.py`、
+   `experiments/forecast_lab/refresh_panel_cache.py` 等）。第一版**只换内部实现**。
+2. **`_source` 口径不倒退**：`fresh` / `cache` / `cache:fallback` 三态必须保留（`report_generator.py`
+   已按 `cache:fallback` 前缀出显式 ⚠️ 告警），新增源名以 `source:<name>` 追加，**不改旧语义**。
+3. **零网络纪律**：shadow 路径只读 `forecast_outputs/samples_frozen_*.jsonl`，**不得因重构回退到 `load_samples`**
+   （否则撞缓存 TTL 会触发前复权 K 线重取，尺子漂移，09-10 实证 −0.121）。
+4. **东财频控**：SourceRegistry 必须带「源级串行 + 时间盒」，并遵守项目铁律 7——**发东财请求禁止定时器自动开跑**，
+   须人显式授权 + 四项征兆闸门。多源重构**不得**变成「自动多路并发打东财」。
+
+---
+
+## 四、迁移步序（每步可回滚，做完即验）
+
+| 步 | 动作 | 风险 | 验收 |
+|---|---|---|---|
+| 1 | 建 `core/datasource/` 骨架（base/registry/chain/health），**不接任何 provider** | 零（纯新增） | import 通过，旧路径行为不变 |
+| 2 | 迁 `stock_data.py` 三源 → providers | 低（三源已存在，语义平移） | 与旧实现同参数对拍，K 线逐根一致 |
+| 3 | 迁 `real_time.py` 腾讯源 → provider，失败**留痕**而非静默 | 低（单源） | 断网时返回结构带 error 字段 |
+| 4 | 迁 `data_loader.py` 东财源 → provider；把 `pull_sina_nav.py` 升为 `fund_sina` provider 接入链 | **中**（首次真正多源） | 东财失败时可回落新浪，`_source` 正确标注 |
+| 5 | 报告层加 source trace，复用 `report_generator.py` 现有 `cache:fallback` 告警分支 | 低 | 飞书推送显示实际来源 |
+
+**测试**：新增 `tests/test_datasource_chain.py`——每源的 成功 / 失败 / 超时 三种链行为 + source trace 正确性。
+现有 `tests/test_netutil.py` 不动。
+
+---
+
+## 五、明确不做
+
+- ❌ 不重构 `core/netutil.py`（传输层已过硬，动了就是自伤）。
+- ❌ 不引入 Django / Celery / Web UI（FundVal-Live 那套是 AGPL 且对 V4 无用）。
+- ❌ 不把 Tushare 拉进任何决策备选（MEMORY.md 已定：Tushare 积分通道不在决策备选范围）。
+- ❌ 第一版不落盘健康度（进程内即可，避免新增状态文件污染 `data/`）。
