@@ -105,13 +105,22 @@ class FetchResult:
 > - 东财实际请求 6 发（旧 3 + 新 3），单发不重试、全程无频控征兆；
 > - 生产缓存零扰动：脚本不落盘，三标的缓存 mtime 仍为 09-16、sha256 与备份逐字节一致
 >   （备份 `output/backup_stock_klines_20260917/`，可删）。
-> 步 3~5 未动。
+> **✅ 17:55 步 3 落地**——新增 `providers/realtime_tencent.py`（解析逻辑逐字平移，
+> 「拉出 0 条」按 `data:` 失败处理）；`core/real_time.py` 退化为装配点（category
+> `realtime_quote`，链上暂仅腾讯一源）。**唯一语义升级（本步验收点）**：失败不再静默
+> `{}`，改返 `{"_error": "network:…|data:…"}`——`_error` 非 6 位代码键，
+> `weighted_estimate` 天然免疫 → 走既有 `est_change_pct is None` 降级分支，run.py 零改动。
+> 验证：离线测 9/9（`tests/test_realtime_datasource.py`，stub netutil）+ fast 全量
+> **261/261** + 真实冒烟（qt.gtimg.cn 腾讯域、不受铁律 7 约束，总共仅 2 发：
+> 旧 1 + 新 1）600519/000651/000858 **3×6 字段 + 加权估计逐项一致**；
+> 脚本 `experiments/datasource_parity/smoke_step3_realtime_20260917.py`。
+> 步 4~5 未动。
 
 | 步 | 动作 | 风险 | 验收 |
 |---|---|---|---|
 | 1 | 建 `core/datasource/` 骨架（base/registry/chain/health），**不接任何 provider** | 零（纯新增） | import 通过，旧路径行为不变 |
 | 2 | ~~迁 `stock_data.py` 三源 → providers~~ **✅ 2026-09-17 已落地** | 低（三源已存在，语义平移） | 离线层已钉（provider 21 测 + fast 252 全过）；**真实逐根对拍待授权** |
-| 3 | 迁 `real_time.py` 腾讯源 → provider，失败**留痕**而非静默 | 低（单源） | 断网时返回结构带 error 字段 |
+| 3 | ~~迁 `real_time.py` 腾讯源 → provider，失败**留痕**而非静默~~ **✅ 2026-09-17 已落地** | 低（单源） | ✅ 断网返回 `{"_error": …}`（离线 9 测钉死）+ 真实冒烟 6 字段一致 |
 | 4 | 迁 `data_loader.py` 东财源 → provider；把 `pull_sina_nav.py` 升为 `fund_sina` provider 接入链 | **中**（首次真正多源） | 东财失败时可回落新浪，`_source` 正确标注 |
 | 5 | 报告层加 source trace，复用 `report_generator.py` 现有 `cache:fallback` 告警分支 | 低 | 飞书推送显示实际来源 |
 
