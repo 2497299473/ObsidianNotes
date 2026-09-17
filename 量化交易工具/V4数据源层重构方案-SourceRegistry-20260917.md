@@ -81,6 +81,11 @@ class FetchResult:
 
 ## 四、迁移步序（每步可回滚，做完即验）
 
+> **进度（2026-09-17）：步 1 已落地**——`QuantV1/core/datasource/{__init__,base,registry,chain,health}.py`
+> + `providers/` 空目录 + `tests/test_datasource_chain.py`（22 测，含「providers 不得有实现 /
+> 包内不得 import 网络库 / 旧模块 import 面不变」三道守护），登记进 `tests/layers.py` fast 层；
+> fast 全量 229/229 通过，旧路径零改动。步 2~5 未动。
+
 | 步 | 动作 | 风险 | 验收 |
 |---|---|---|---|
 | 1 | 建 `core/datasource/` 骨架（base/registry/chain/health），**不接任何 provider** | 零（纯新增） | import 通过，旧路径行为不变 |
