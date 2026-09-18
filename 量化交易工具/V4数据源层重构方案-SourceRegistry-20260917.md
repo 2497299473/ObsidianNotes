@@ -81,7 +81,7 @@ class FetchResult:
 
 ## 四、迁移步序（每步可回滚，做完即验）
 
-> **进度（2026-09-17）：步 1~5 代码全部落地；唯一遗留＝步 4「真实东财失败→回落」待授权对拍**
+> **进度（2026-09-18）：步 1~5 代码 + 验收全部关闭（步 4 真实回落 09-18 授权验收完成）**
 >
 > **步 1**——`QuantV1/core/datasource/{__init__,base,registry,chain,health}.py`
 > + `providers/` 空目录 + `tests/test_datasource_chain.py`（22 测，含「providers 不得有实现 /
@@ -136,16 +136,26 @@ class FetchResult:
 > **剥除缓存里的 stale `source` 键**（对本次加载已失真，不得混进展示层）。
 > 验证：新增 10 测（三态回归 + 共用判定 + 卡片含切换行 + stale 剥除）+ fast 全量
 > **286/286**，零网络。提交 QuantProject `a431da7`。
-> ⚠️ **全局唯一遗留**：步 4「东财真实失败→链回落 sina」真实验收待发东财请求，
-> 明日（09-18 周五）09:30 后过四闸门 + 人授权再跑（≤3 发）；届时步 5 的换源提示
-> 会自然在报告中亮相（若真发生回落）。
+> **✅ 09-18 10:12 步 4 真实回落验收关闭**（Summer 09:56 授权；四闸门全过：10:09 窗内、
+> G1 晨检完成+板块四码 09-17 齐、G2 昨 16:00 全绿、G3 无在途）。脚本
+> `experiments/datasource_parity/accept_step4_fallback_20260918.py`，东财真实仅 **2 发**
+> （正常链 + 恢复链），失败注入用进程内 patch 不重复打东财：
+> ① 正常链 `_source=fresh / source=eastmoney`、报告无切换提示；
+> ② 注入东财 network 失败 → **链自动回落 sina**（25s 全量分页，source=sina），
+> trace 出「002112（实际来源 sina，东财主源本次未取到）」+ 报告层渲染「数据源切换」
+> ——**步 4×步 5 联动一次验穿**；②b sina×东财 2644 条交集 **mismatch=0**；
+> ③ 恢复后历史段与备份逐条一致，仅新增今晨公布尾条（NAV 序列只增不改，正常）。
+> 小插曲：首版③断言写严（要求全等、未容新增条），判挂了已成功的实跑——改为子集比对，
+> 实跑结果有效、③以离线核验补认，未为凑绿重发请求。
+> 备份 `output/backup_klines_20260918/`（可删）。提交 QuantProject `bfc81e9`。
+> **V4 数据源重构 5 步：代码 + 验收全部关闭。**
 
 | 步 | 动作 | 风险 | 验收 |
 |---|---|---|---|
 | 1 | 建 `core/datasource/` 骨架（base/registry/chain/health），**不接任何 provider** | 零（纯新增） | import 通过，旧路径行为不变 |
 | 2 | ~~迁 `stock_data.py` 三源 → providers~~ **✅ 2026-09-17 已落地** | 低（三源已存在，语义平移） | 离线层已钉（provider 21 测 + fast 252 全过）；**真实逐根对拍待授权** |
 | 3 | ~~迁 `real_time.py` 腾讯源 → provider，失败**留痕**而非静默~~ **✅ 2026-09-17 已落地** | 低（单源） | ✅ 断网返回 `{"_error": …}`（离线 9 测钉死）+ 真实冒烟 6 字段一致 |
-| 4 | 迁 `data_loader.py` 东财源 → provider；`pull_sina_nav.py` 升 `fund_sina` 接链 **🟡 2026-09-17 代码+离线+新浪冒烟已落地** | **中**（首次真正多源） | 东财失败时可回落新浪，`_source` 正确标注——**真实回落验收待授权**（铁律 7） |
+| 4 | 迁 `data_loader.py` 东财源 → provider；`pull_sina_nav.py` 升 `fund_sina` 接链 **✅ 2026-09-18 验收关闭** | **中**（首次真正多源） | ✅ 东财失败（注入演练）时链回落新浪、`source=sina` 正确标注 + trace 联动渲染 |
 | 5 | ~~报告层加 source trace，复用 `report_generator.py` 现有 `cache:fallback` 告警分支~~ **✅ 2026-09-17 已落地** | 低 | ✅ 落盘报告 + 飞书卡片显示实际来源（共用 `source_trace_notes` 判定） |
 
 **测试**：新增 `tests/test_datasource_chain.py`——每源的 成功 / 失败 / 超时 三种链行为 + source trace 正确性。
