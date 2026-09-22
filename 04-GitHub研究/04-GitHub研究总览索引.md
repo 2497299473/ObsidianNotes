@@ -29,7 +29,7 @@ lark_doc_url: ""
 | **上下文压缩 / 省 token** | 传输前砍冗余，可逆 | Headroom |
 | **代码理解 / 图谱** | 调用链、影响面、外科手术式上下文 | CodeGraph · archify（下游出图） |
 | **Agent 运行时 / 编排** | 多 Agent 执行、通道、会话 | OpenSquilla · AgentScope · herdr · HarnessX |
-| **Skills / 方法论剧本** | 身份（WHO）与流程（HOW） | agency-agents · agent-skills · mattpocock · book-to-skill · reverse-skill · i-have-adhd · ponytail（做减法） |
+| **Skills / 方法论剧本** | 身份（WHO）与流程（HOW）与评审硬约束 | agency-agents · agent-skills · mattpocock · book-to-skill · reverse-skill · i-have-adhd · ponytail（做减法） · open-code-review（评审 harness） |
 | **前端设计能力** | 生成 / 质检 / 路由 | UI/UX Pro Max · Impeccable · UI Skills · Astryx |
 | **金融 / ML 模型** | 量化、行情、K 线基础模型 | Kronos |
 | **教育 / 学习产品** | 课程生成、苏格拉底对话 | OpenMAIC · Socratopia（在 03） |
@@ -79,6 +79,7 @@ lark_doc_url: ""
 | **archify** | 代码理解·出图 | Agent 生成**可验证**架构/流程/时序/数据流图（自包含 HTML） | ★★★ | MIT | JS | **已实测·出图入库**；⚠️#310：8.3 短名路径 preview 必崩，本机只用 render | A | [[量化交易工具/QuantV1数据流图-archify实测与310复现-20260914]] |
 | **ponytail** | Skills·HOW（减法） | 让 Agent 像「最懒资深工程师」写代码，能不写就不写 | ★★★ | MIT | JS | **已落地 lite 档**（QuantV1/AGENTS.md） | C | 同上笔记 137,441★ |
 | **gods-eye-view** | 采集/OSINT | 浏览器内真实数据卫星仿真 + 3D 地球 | ★ | ⚠️ NOASSERTION | JS | **冷藏·协议未明** | C | 同上笔记 32,073★ |
+| **open-code-review** | Skills·HOW（评审硬约束） | 阿里 OCR：确定性流水线+LLM Agent 混合代码审查 CLI；Delegation 可复用现有 Claude Code | ★★★ | Apache-2.0 | Go/CLI | **已分析·未安装**（2026-09-21） | A | [[04-GitHub研究/open-code-review/open-code-review 项目笔记]] |
 
 ### 每周热点核验
 
@@ -94,6 +95,7 @@ lark_doc_url: ""
 | 三大 AI Skills | WHO × HOW-工厂 × HOW-工匠 可叠加；已部署链路写明 | [[04-GitHub研究/agency-agents/三大 AI Skills 项目对比分析]] |
 | Agent-Skills vs Agency-Agents | 身份层与流程层互补 | [[04-GitHub研究/agency-agents/Agent-Skills 与 Agency-Agents 对比分析]] |
 | 前端设计三件套 | Pro Max 0→1 正确，Impeccable 1→100 品味，UI Skills 路由 | [[04-GitHub研究/前端设计Skill对比/Impeccable vs UI UX Pro Max vs UI Skills]] |
+| 代码评审路径对照 | agent-skills `/review` 五轴 HOW · mattpocock 双轴 · Claude 官方 PR 插件 · **OCR Delegation 硬约束 harness（未安装）** | [[04-GitHub研究/open-code-review/open-code-review 项目笔记]] §五 |
 
 ### 03-AI工具 中的项目研究（跨目录对照）
 
