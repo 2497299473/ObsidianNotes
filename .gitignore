@@ -29,6 +29,8 @@ Thumbs.db
 .obsidian/workspace.json
 .obsidian/workspace.json.bak*
 .obsidian/plugins/
+# Hover Notes 插件导出的视图模板（第三方插件文件，非笔记终稿）
+-*.base
 
 # 本地 AI / 同步工具会话与缓存
 .claudian/
@@ -37,3 +39,6 @@ Thumbs.db
 .claude/
 .mimocode/
 memory/
+
+# Web Clipper 剪藏暂存区（原始抓捕件，留本地；整理后的终稿入 01-学习/ 等分类目录）
+Clippings/
