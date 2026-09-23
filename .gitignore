@@ -35,4 +35,5 @@ Thumbs.db
 .agents/
 .opensquilla/
 .claude/
+.mimocode/
 memory/
