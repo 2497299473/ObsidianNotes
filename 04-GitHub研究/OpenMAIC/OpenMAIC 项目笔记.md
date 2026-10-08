@@ -3,6 +3,8 @@
 > 记录时间：2026-09-01 · 来源：GitHub README（raw）/ open.maic.chat / JCST 2026 论文 / 中文深度解读
 > 项目地址：https://github.com/THU-MAIC/OpenMAIC · Live Demo：https://open.maic.chat
 
+> ⚠️ 2026-10-08 已卸载（见《技能卸载与更新记录》）
+
 ## 一句话定位
 
 **OpenMAIC（Open Multi-Agent Interactive Classroom）**：清华 THU-MAIC 团队开源的 AI 互动课堂平台——输入一个主题或上传文档，几分钟内由多 Agent 协作生成一整堂可交互的课（幻灯片+语音+测验+交互模拟+白板推演+圆桌辩论+PBL），AI 教师和 AI 同学实时讲课、讨论、点名。

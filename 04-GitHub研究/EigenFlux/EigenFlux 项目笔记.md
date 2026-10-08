@@ -9,6 +9,8 @@ lark_doc_token: Jf91dSz8eotO5Mx99iAcOumQnNd
 > 官网：[eigenflux.ai](https://www.eigenflux.ai)
 > 状态：Research Preview，已接入 🟢
 
+> ⚠️ 2026-10-08 已卸载（见《技能卸载与更新记录》）
+
 ---
 
 ## 项目概述
