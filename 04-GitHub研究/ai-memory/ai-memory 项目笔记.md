@@ -76,4 +76,47 @@
 ## 参考
 
 - 仓库：https://github.com/akitaonrails/ai-memory
+- 官网：https://aimemory.sh
 - v1.29.0 release 解读：https://ai-tldr.dev/releases/akitaonrails-ai-memory-1-29-0
+
+---
+
+## 2026-10-26 复核（最新 README，v3.0 代）
+
+> 来源：GitHub README（main 分支实拉）+ GitHub API + 本机环境对照。原笔记（08-31）内容保留，以下为新版本增量与重新裁决。
+
+### 数字更新（API 实拉）
+
+- Stars：3.3k（08-19）→ **13,538**（10-26），forks 959，open issues 15，语言 Rust，MIT
+- 版本：README 已含 `docs/upgrading-to-3.0.md`，docs 提及 2.4 代特性（per-tier 衰减曲线、DBSCAN 冷簇去重、访问强化、belief-strength 置信）→ 当前 **v3.x 代**
+
+### 相对旧笔记的新增/演进
+
+1. **支持矩阵扩到 20+ harness**：新增 Qwen Code / Cline（Hooks+MCP）/ IBM Bob / DSH（Hooks+MCP）/ Hermes Agent / GrizzyBot / FreeBuff / Prime Agent 等；Claude Desktop / Zed / VS Code Copilot 为 MCP-only
+2. **handoff 协议升级为 typed + claim-once**：每个 handoff 有 owner、恰好被认领一次，防多 Agent 双抢
+3. **`ai-memory run <harness>` 会话投影**：接力时下一个 Agent 除共享 workstream 外，还获得上一会话可见原生历史的**私有临时本地投影**（精确细节不受启动包截断）；远端服务器只收 harness/会话身份，**不收本地 transcript 路径与正文**
+4. **跨项目 profile**：你的工作方式（包管理器/测试布局/架构习惯）到每个新仓库自动生效，位于仓库规则文件之下的默认层；单用户默认开，共享 server 上 opt-in 且按人私有
+5. **零 LLM 记忆老化**（默认路径，无需 API key）：per-tier 衰减曲线 + 访问加权（越常用衰减越慢）+ 冷笔记抽取式压缩（只留文件路径/错误码/决策等持久事实）+ 近重复合并 + 矛盾标记；**supersede-not-delete + `restore-page` 可恢复，改写类功能默认全关**
+6. **opt-in LLM "dream"**：空闲时把冷笔记簇改写成连贯页面，用户一回来即取消；永不删源；默认关，要过 recall eval 才可能成默认
+7. **多用户团队**：按项目共享知识、个人 handoff 私有、归属 + 审计日志内置**非付费档**；可选 server 渲染管理控制台（编译期 + 运行期双 opt-in）
+8. 其他：wiki 原生 **OKF v0.2** bundle、SSO OIDC device-auth、airgapped 离线安装、TypeScript SDK、桌面安装器（unsigned preview）
+
+### 本机环境裁决（2026-10-26）
+
+**决定：不装，继续跟踪。** 三个理由 + 一个前提：
+
+1. 主力 harness 是 **OpenSquilla，不在支持矩阵**（顶多 MCP 连接查询；hooks 静默自动捕获是 harness 级集成，接不上——核心卖点打对折）
+2. 单机单用户（QuantV1 + 笔记库）：团队 server / 多用户归属 / 审计日志均用不上
+3. MiMo Code 2026-10-08 已卸载，无「Claude Code 干一半 → Codex 接手」跨 CLI 场景
+4. Windows 原生仍 **Experimental**（WSL2 才是正式路径）
+
+**重估触发条件**：将来确实需要多 coding CLI 接力、或同一仓库跨两台机器 → 与 Mnemosyne 并排 A/B（本机 Windows 环境 Mnemosyne 走 pip 原生更顺，ai-memory 需 WSL2）。
+
+### Mnemosyne vs ai-memory（设计哲学对照）
+
+| | Mnemosyne | ai-memory |
+|---|---|---|
+| 第一优先级 | **召回质量**（单 SQLite + MIB 48 字节向量 + FTS5 混合评分，LongMemEval Recall@All@5 98.9%） | **文件主权 + 跨 agent 接力**（git markdown wiki 是唯一事实源，DB 只是可随时重建的派生索引） |
+| LLM 依赖 | 需要 embeddings | 默认零 LLM（capture/search/handoff 全免 API key），LLM 功能全 opt-in |
+| 差异化 | Hermes-first、任意 MCP、Fernet/SecretBox 加密同步 | claim-once 类型化 handoff、会话投影、团队 server、零 LLM 记忆老化 |
+| Windows | pip 原生 | 原生 Experimental / WSL2 正式 |
