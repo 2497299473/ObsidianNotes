@@ -162,6 +162,18 @@
 
 ---
 
+## 追加实测（2026-10-26 傍晚）：369 个社区补中文语义名
+
+- 结果：**269 个有成员的社区全部中文命名**（如「项目审计检查」「验证证据装配」「Rank IC 指标」「路径预测建模」「穿透信号回测」），零 `Community N` 占位；graph.html 5479 处 `community_name` 全中文
+- 成本实账：36,179 in / 15,907 out → **$0.037**（deepseek-v4-flash，与预估 $0.03 同量级）
+- ⚠️ **坑 1：graphify 没有 label 语言开关**。命名 prompt 硬编码英文（`llm.py` 的 `_label_batch_with_retry`，示例 `"Order Management"`），deepseek 照抄英文。**做法：直接改 site-packages 里的 prompt 为中文指令**，示例换成「项目审计检查 / 验证证据装配」。副作用：该改动对**所有**项目生效（以后别的库建图也是中文名），升级 graphify 会丢失需重打
+- ⚠️ **坑 2：`.graphify_labels.json` 是强缓存**。改了 prompt 或想重新命名，必须先删这个文件；否则 `cluster-only --label` 只打印 `--backend ignored: reusing saved labels` 然后原样返回旧名（踩了 3 次）
+- ⚠️ **坑 3：`cluster-only --label` 不带 backend 会退回 `claude` CLI**（本机无 Claude CLI → `no API key found`），必须用注入 `DEEPSEEK_API_KEY` 的 helper 脚本跑
+- ⚠️ **坑 4：每次 cluster-only 都会重写 graph.html**，且默认又降级回聚合视图；跑完必须再 `export html --node-limit 12000` 重建全节点视图
+- 复用脚本：`D:\PythonProject\_scratch\_cluster_label.py`（从 Agent 配置取 key 注入子进程，不落 argv/日志）
+
+---
+
 ## 🔗 相关链接
 
 - 仓库：https://github.com/Graphify-Labs/graphify
