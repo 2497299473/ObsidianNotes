@@ -149,6 +149,19 @@
 
 ---
 
+## 追加实测（2026-10-26 下午）：docs 语义入图
+
+- 路径：`extract <root> --backend deepseek`（deepseek-v4-flash @ api.deepseek.com，`GRAPHIFY_DISABLE_THINKING=1`；密钥经临时 helper 脚本注入子进程环境，不落 argv/日志）
+- 成本实账：首轮 52 docs = **$0.1345**（145k in/53k out）；三轮增量重试（16/2/1 文件）= $0.059 + $0.028 + $0.016 → 合计 **≈$0.24**
+- 结果：**51/52 入图**，5476 节点 / 11543 边 / 369 社区；docs 节点与代码节点正确联通（AGENTS.md「授权闸门」↔ shadow_policy.py ↔ data/promotion_prereg.json）
+- ⚠️ 坑 1：**大 md 单文件恒截断**——deploy/preregistered_items.md（31.6KB）的语义 chunk 打到 max_completion_tokens，5 次重试全失败（确定性，非抖动）；shrink guard 每轮正确拦住降级写
+- ⚠️ 坑 2：docs 入图会带出运行产物 md 的引用节点（`output/_pre_fix_*` 等），graphify 自动按「本 run 未派发」丢弃，无需干预
+- ⚠️ 坑 3：deepseek 后端依赖 `openai` SDK，基础安装不含，需 `uv tool install "graphifyy[openai,...]" --force` 补装
+- 社区命名仍为 `Community N` 占位（零网络建图的代价）；后续可 `cluster-only --label` 花几分钱补语义名
+- graph.html 已用 `export html --node-limit 12000` 重建为全节点级视图（5.7MB，5476 节点）；默认 5000 上限会在 >5000 节点时降级为社区聚合圆点视图（即「只见 Community N 小圆点」的原因）
+
+---
+
 ## 🔗 相关链接
 
 - 仓库：https://github.com/Graphify-Labs/graphify
