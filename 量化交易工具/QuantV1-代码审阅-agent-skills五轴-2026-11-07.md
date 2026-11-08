@@ -57,8 +57,13 @@
 
 ## Consider / Optional
 
-- **O-1 依赖老化**：`requests==2.31.0`（CVE-2024-35195 verify=False 会话复用绕过 / CVE-2024-47081 .netrc 泄露，均 2.32.x 修复）。生产链路零使用（仅 experiments/chanlun 6 个探针 import），实际暴露面小。建议升 2.32.x 并单独提交、跑绿 fast+slow（依赖纪律：一次一个包）。
-- **O-2 大文件**：`audit_project.py` 1908 行、`core/model_registry.py` 1168 行，超 1000 行检查信号。下次再长之前先拆（audit 可按 P0/P1/P2 轴拆模块）。本轮不动。
+- **O-1 依赖老化**：`requests==2.31.0`（CVE-2024-35195 verify=False 会话复用绕过 / CVE-2024-47081 .netrc 泄露，均 2.32.x 修复）。生产链路零使用（仅 experiments/chanlun 6 个探针 import），实际暴露面小。
+  **✅ 已处置（2026-11-08）**：升 `2.32.5`（不跳 2.34.x——inline types 大改对探针零收益）。changelog 已审：消费面只有 `requests.get(url, headers, timeout)`，无自定义 HTTPAdapter/Session，不受 2.32.0 的 `_get_connection` 改名影响。单包隔离升级（uv，venv 无 pip），`uv pip check` 干净，依赖树零连带变动，全量 1200 OK。提交 e666d8b。
+- **O-2 大文件**：`audit_project.py` 1908 行、`core/model_registry.py` 1168 行，超 1000 行检查信号。
+  **✅ 部分处置（2026-11-08）**：
+  - `core/model_registry.py` **1168 → 905 行**：promotion 规则引擎（`check_evidence_anchor` + rule v2 五门 + `derive_promotion`）迁 `core/promotion_rule.py`（289 行）。收益是结构性的——纯判据层与 registry 读写分离，改规则不再碰落盘路径。提交 915157a。
+  - `audit_project.py` **1908 → 1730 行**：发布门禁 + 基金掩码（`GATE_*`/`mask_*`/`publish_gate`/`held_fund_codes`）迁 `core/publish_gate.py`（357 行），依赖在每次调用时注入，测试对 `ap.HOLDINGS`/`ap.RUN_MANIFEST_DIR`/`ap.fund_pool` 的 monkeypatch 仍然生效。提交 3740f7e。
+  - **未继续拆 P0/P1/P2 轴**（有意停手）：再拆需为 ~20 个检查项重新设计注入口，而 9 个测试文件直接操作 `ap.BASE_DIR`/`ap.MANIFEST`/`ap.DATA`/`ap.git_lines`/`ap._config`，改错会让无人值守审计链静默失效；1730 行已是单文件可维护范围，收益不抵风险。若日后要拆，先补齐注入契约测试再动。
 - **O-3 netutil v5 cookie 死路径**：docstring 自认「cookie 假设被否证、死代码无害保留」，但每次东财请求仍先 prime 一次主页 GET（300s 退避）。属已知留档决策，仅提示：若确认永不回松可删 prime 链路省真实发包。
 
 ## FYI
