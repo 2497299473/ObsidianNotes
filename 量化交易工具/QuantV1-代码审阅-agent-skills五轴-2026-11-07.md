@@ -47,6 +47,14 @@
 - AST 对比：factors/fusion/lookthrough 三份 pearson 完全等价（可直接收敛）；audit_candidate_flips 版本有差异、_window_slices 三份互不等价（收敛前须先对齐语义，不能盲合并）。
 - 建议：等价三份先提 `core/`（或 backtest 公共模块）；不等价的标注差异原因；`# ponytail:` 注释补上限说明。属工具/胶水层，不碰「不碰清单」。
 
+**✅ 已处置（2026-11-08 Summer 批准，当日落地）**：
+- 新建 `backtest_common.py` 单一真源：`pearson`（三份逐字节等价）/ `window_slices`（三份，审阅时 AST dump 判「互不等价」实为 docstring 差异，函数体逐字节等价）/ `fit_one_horizon`（两份训练体等价，统一 (clf,y) 包装，WF 调用侧取 [0]）。七个消费方改 import（含 backtest_chanlun 中转改直连）。
+- 不合并项原地 `# ponytail:` 留痕：audit_candidate_flips.pearson（NaN 缺失语义，合并会改判 isnan 分支）；两个 spread（预测分位差 vs 决策分组超额差，仅重名）。
+- 守护：`tests/test_backtest_common.py` 15 项（黄金值 + AST 接线防回潮）；fit_one_horizon 以 HEAD 旧版 stub 对照 ctor/fit 序列与不足分支逐位一致。
+- **连带修复（C-1 历史重写后遗症，全量跑测才暴露）**：`test_provenance_binding` 钉死旧锚点 6e0c9dd66 红灯 → registry 两条目 git_commit 重绑 b5cd0bf5d（first_identical_commit 重新推导 + 四重核验：commit-map 映射/磁盘 sha/锚点 blob sha/最小 diff），provenance.rebind_20261108 留痕；测试与探针 docstring 同步锚点史。历史日志（d3_batch_selftest）不改写。
+- 验证：**全量 1200 OK (skipped=3)**；审计 19 PASS / 0 FAIL / 6 WARN。提交 5333798 + 921e6ec 已推送。
+- 推送插曲：github.com:443 对 git schannel 后端间歇性重置（Python urllib 正常），`http.sslBackend=openssl` 即通，已固化为 repo 级设置（可逆：`git config --unset http.sslBackend`）。
+
 ## Consider / Optional
 
 - **O-1 依赖老化**：`requests==2.31.0`（CVE-2024-35195 verify=False 会话复用绕过 / CVE-2024-47081 .netrc 泄露，均 2.32.x 修复）。生产链路零使用（仅 experiments/chanlun 6 个探针 import），实际暴露面小。建议升 2.32.x 并单独提交、跑绿 fast+slow（依赖纪律：一次一个包）。
