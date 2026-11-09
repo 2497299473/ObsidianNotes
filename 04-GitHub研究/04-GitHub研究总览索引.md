@@ -24,7 +24,7 @@ lark_doc_url: ""
 
 | 能力槽 | 管什么 | 已占位项目 |
 |--------|--------|-----------|
-| **采集 / 上游供料** | 把外部数据变成 Agent 可用素材 | MyContext · Firecrawl · pdf-inspector · huashu-chrome · ego-lite |
+| **采集 / 上游供料** | 把外部数据变成 Agent 可用素材 | MyContext · Firecrawl · pdf-inspector · huashu-chrome · ego-lite · Scrapling |
 | **记忆 / 上下文存取** | 长期记住、组织、取回 | OpenViking · TencentDB Agent Memory · mnemosyne · ai-memory |
 | **上下文压缩 / 省 token** | 传输前砍冗余，可逆 | Headroom |
 | **代码理解 / 图谱** | 调用链、影响面、外科手术式上下文 | CodeGraph · archify（下游出图） |
@@ -80,6 +80,8 @@ lark_doc_url: ""
 | **ponytail** | Skills·HOW（减法） | 让 Agent 像「最懒资深工程师」写代码，能不写就不写 | ★★★ | MIT | JS | **已落地 lite 档**（QuantV1/AGENTS.md） | C | 同上笔记 137,441★ |
 | **gods-eye-view** | 采集/OSINT | 浏览器内真实数据卫星仿真 + 3D 地球 | ★ | ⚠️ NOASSERTION | JS | **冷藏·协议未明** | C | 同上笔记 32,073★ |
 | **open-code-review** | Skills·HOW（评审硬约束） | 阿里 OCR：确定性流水线+LLM Agent 混合代码审查 CLI；Delegation 可复用现有 Claude Code | ★★★ | Apache-2.0 | Go/CLI | **已分析·未安装**（2026-09-21） | A | [[04-GitHub研究/open-code-review/open-code-review 项目笔记]] |
+| **Scrapling** | 采集/供料 | Python 抓取四层一体 + 自适应选择器；MCP 17 工具已接 OpenSquilla（gateway 冷启动 95s，timeout 需 300） | ★★★ | BSD-3-Clause | Py ≥3.10 | **已启用**（2026-11-09） | A | [[04-GitHub研究/Scrapling/Scrapling 项目笔记]] |
+| **ziwei-doushu** | Skills·领域知识 | 倪师《天纪》排盘引擎；已落地 ziwei-paipan Skill，2500 盘对官方数据集零误差 | ★★ | MIT/数据CC-BY/原话NC | TS/Node | **已启用**（2026-11-09） | A | [[04-GitHub研究/ziwei-doushu/ziwei-doushu 项目笔记]] |
 
 ### 每周热点核验
 
