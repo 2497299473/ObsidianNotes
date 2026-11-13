@@ -41,9 +41,12 @@ status: 📝 待处理
 为了让你有一个直观的感受，我们来看一个具体的例子：
 
 ```bash
-curl https://api.openai.com/v1/chat/completions
-  -H "Content-Type: application/json"
-  -H "Authorization: Bearer $OPENAI_API_KEY"
+# 先导出 Key，再粘贴执行
+export OPENAI_API_KEY="sk-..."
+
+curl https://api.openai.com/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $OPENAI_API_KEY" \
   -d '{
     "model": "gpt-4o",
     "messages": [
@@ -51,6 +54,10 @@ curl https://api.openai.com/v1/chat/completions
     ]
   }'
 ```
+
+> [!note] 复制即用须知
+> 除首行外每行末尾的反斜杠是**续行符**——缺了它，shell 会把整段当成多条独立命令，报 `curl: no URL specified`。
+> `Bearer` 后的 Key 已改为引用 `$OPENAI_API_KEY`：先把 Key 写进环境变量，这段命令就能原样粘贴执行。
 
 在了解具体内容之前，我们先从整体上看一下这个 API。虽然我们的主要工作是面向大模型进行编程，但 Open AI API 其实提供了许多功能，比如：
 
@@ -75,9 +82,13 @@ Vision：处理图像输入
 而 API Key 则比较好理解，不同的 Key 用来标识不同的用户。从上面的例子不难看出，这个 Key 是写在 HTTP 访问的头里。如果我们使用的是 OpenAI 提供的程序库，这两个参数可以通过程序设置，也可以通过命令行设置，下面是使用命令行设置的例子：
 
 ```bash
-export OPENAI_API_BASE="your_api_base_here"
+export OPENAI_BASE_URL="your_api_base_here"
 export OPENAI_API_KEY="your_api_key_here"
 ```
+
+> [!warning] 两个变量名不通用
+> OpenAI 官方 Python/Node SDK（`openai` 1.x）读的是 **`OPENAI_BASE_URL`**；而 LangChain 的 `ChatOpenAI` 认的是 **`OPENAI_API_BASE`**（08 篇用的就是后者，那里是对的）。
+> 两者名字不同、互不兼容：在原生 SDK 场景写 `OPENAI_API_BASE` 不会报错，但请求仍会打到 `api.openai.com`，最后表现为 401 或超时——很难定位。
 
 有了这些通用的知识，接下来，我们来具体关注一下最核心的大模型编程接口。
 

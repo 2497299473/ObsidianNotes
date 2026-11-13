@@ -91,8 +91,12 @@ result = pipe(messages)
 这段代码本身很容易理解，不过，第一次执行这段代码可能会遇到很多问题。有的模型在访问上是需要受到限制的，比如，Meta 的 Llama，需要我们先去做相应的申请。我们要有 Hugging Face 账户，再去做对应的申请，然后，还需要配置自己的 Access Token，再去做相应的配置：
 
 ```bash
-export HUGGINGFACE_TOKEN=<AccessToken>
+export HF_TOKEN=<AccessToken>
 ```
+
+> [!warning] 变量名以 huggingface_hub 为准
+> `huggingface_hub` 读的是 **`HF_TOKEN`**（旧名 `HUGGING_FACE_HUB_TOKEN`）。原文写的 `HUGGINGFACE_TOKEN` 它并不识别，配了也不生效——需要申请权限的模型（如 Llama）照样 401。
+> 顺带区分：`HUGGINGFACEHUB_API_TOKEN` 是 LangChain 那套的变量名，与这里不通用。
 
 再有，在国内访问 Hugging Face 速度上可能会有些问题。这时，我们可以考虑使用镜像站，这也需要做一些配置：
 

@@ -46,6 +46,9 @@ RAG 是为了让大模型知道更多的东西，所以，接下来要实现的 
 
 ```python
 from langchain_community.document_loaders import TextLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_chroma import Chroma
+from langchain_openai import OpenAIEmbeddings
 
 loader = TextLoader("introduction.txt")
 docs = loader.load()

@@ -43,6 +43,8 @@ status: 📝 待处理
 我们先来实现一个基础的聊天机器人：
 
 ```python
+import re
+
 from openai import OpenAI
 
 DEFAULT_MODEL = "gpt-4o-mini"
