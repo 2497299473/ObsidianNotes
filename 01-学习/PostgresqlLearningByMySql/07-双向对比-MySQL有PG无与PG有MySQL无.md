@@ -148,8 +148,12 @@ flowchart LR
 | DDL 事务支持 | 无（DDL 隐式提交） | 原子性 Schema 变更 |
 | 咨询锁（Advisory Lock） | 无 | 分布式锁、应用协调 |
 | Serializable Snapshot Isolation (SSI) | 无 | 无锁串行化 |
-| Repeatable Read 防幻读 | 不防幻读 | 更强隔离保证 |
+| Repeatable Read 防幻读 | 也防（机制不同）：普通 SELECT 一致性快照读看不到后提交的 INSERT；锁定读靠 next-key 锁 | 更强隔离保证 |
 | `pg_stat_activity` 系统视图 | 有 `SHOW PROCESSLIST` | 会话与锁监控 |
+
+> [!important] 别把「机制不同」写成「MySQL 不防幻读」
+> MySQL InnoDB 的 RR 在**普通 SELECT** 下走一致性快照读，看不到其他事务后提交的新行，因此不会幻读；幻读只出现在**锁定读**（`SELECT ... FOR UPDATE` 等当前读）或「先当前读再快照读」的场景，next-key 锁（记录锁 + 间隙锁）正是锁定读下的防幻读机制。
+> PG 的差异在**实现路径**：RR 即快照隔离，不依赖间隙锁。详见 [[05-事务与并发控制]] 2.3 节幻读测试与 F2 问答。
 
 ### 2.5 扩展生态
 
