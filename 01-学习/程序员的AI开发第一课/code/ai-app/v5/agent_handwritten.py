@@ -105,6 +105,9 @@ def query(question, max_turns=5):
             next_prompt = "Observation: {}".format(observation)
         else:
             return
+    else:
+        # while…else：循环因 max_turns 耗尽而退出（非正常收敛），对应 13 篇「限制最大询问次数」教学点
+        print(f"[未收敛] 已达 max_turns={max_turns}，未得到 Final Answer；请检查提示词与动作名是否一致")
 
 if __name__ == "__main__":
     query("What is the total price of 3kg of apple and 2kg of banana?")
