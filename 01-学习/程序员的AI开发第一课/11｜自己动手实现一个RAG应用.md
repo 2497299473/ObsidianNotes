@@ -254,6 +254,9 @@ Context: {context}
 
 有了这个提示词，再加上聊天历史和我们的问题，就构成了一个完整的提示词模板：
 
+> [!warning] 📊 量化视角：RAG 检索必须带时间维度（2026-11-13）
+> 本篇的 retriever 只按向量相似度检索，**不认时间**。若把研报/公告/新闻入库后用于回测，必须在检索前按 `publish_date <= as_of` 裁剪候选集，否则 2026 年的研报会污染 2024 年的回测——**未来函数会从检索层溜进回测**。这与 [[01-学习/量化研究/experiments/v0-数据基线|v0-数据基线]] 记录的 Point-in-Time 问题同构：数据集冻结 ≠ PIT，检索层也要有 as-of 纪律。
+
 ```python
 prompt = ChatPromptTemplate.from_messages(
     [

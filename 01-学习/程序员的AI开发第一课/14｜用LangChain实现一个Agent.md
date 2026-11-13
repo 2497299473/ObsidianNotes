@@ -36,6 +36,12 @@ status: 📝 待处理
 
 从实现的功能上讲，我们这一讲要实现的功能和上一讲是完全相同的，只不过我们采用了 LangChain 的基础设施，代码如下所示：
 
+> [!info] 版本口径（2026-11-13，依 J6 只注记不改代码）
+> 本篇代码基于 **LangChain 0.3.x**（教学基线，见总览索引）。LangChain 1.x 已将 `langchain` 包收缩为 agent 核心：`from langchain.agents import AgentExecutor, create_react_agent` 在 1.x 下失效，旧接口迁入 `langchain-classic`，新推荐入口是 `langchain.agents.create_agent`。未在本机实跑 1.x，迁移细节以官方迁移指南为准。
+
+> [!warning] eval 无沙箱（2026-11-13）
+> `calculate` 里的 `eval(what)` 会执行模型生成的任意 Python 表达式（可读写文件、发网络请求）。教学演示可接受，生产环境必须换成受限求值（如 AST 白名单 / 专用计算库）并跑在隔离环境里。同见 [[13｜从头实现一个Agent]] 的同类提醒。
+
 ```python
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain_core.prompts import PromptTemplate
@@ -241,6 +247,13 @@ result = agent_executor.invoke({
 })
 ```
 
+> [!warning] ShellTool 会把任意 shell 命令交给模型执行（2026-11-13）
+> 这段代码没有任何防护：模型生成的命令（含误判或被提示词注入诱导的命令）会直接在你的机器上执行，`rm`、覆盖文件、外发数据都可能发生。照抄前务必：
+> 1. **隔离环境**：在一次性容器/虚拟机里跑，不挂载敏感目录；
+> 2. **命令白名单**：只允许只读或限定目录内的操作，危险命令拒绝；
+> 3. **人工确认**：每条命令执行前人工审批（LangChain 1.x 的 human-in-the-loop 中间件即为此设计）。
+> 另注：本段为摘录，`ShellTool` 需 `from langchain_community.tools import ShellTool`（0.3.x；1.x 已迁入 `langchain-classic` 并标记废弃，新项目建议用自定义受限工具替代）。全专题的提示词注入与数据脱敏风险声明见总览索引。
+
 在这个例子里，我们创建了一个可以执行自然语言命令的命令行工具。为了支持命令行的执行，我们引入了 ShellTool，它是一个命令行工具。所有的工具实际上都是 Tool 这个接口的实现，ShellTool 也是实现这个接口。前面的动作函数就是通过 @tool 这个装饰器生成了一个实现 Tool 接口的对象。
 
 对程序员来说，命令行的行为大家都不陌生，下面就是这个 Agent 的一次执行结果，我让它创建了一个名为 test.txt 的文件，然后，在其中写入“Hello, World!”。
@@ -269,6 +282,9 @@ tools = toolkit.get_tools()
 agent = create_react_agent(model, tools, prompt)
 ...
 ```
+
+> [!note] 摘录补全（2026-11-13）
+> 本段需 `from langchain_community.utilities.github import GitHubAPIWrapper` 与 `from langchain_community.agent_toolkits.github.toolkit import GitHubToolkit`（0.3.x 路径；1.x 迁入 `langchain-classic`）。GitHub 工具会真实读写仓库，令牌权限按最小化配置。
 
 当然，为了这段代码能够执行，你需要找到相关的配置：
 

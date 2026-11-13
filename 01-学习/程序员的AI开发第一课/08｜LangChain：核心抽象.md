@@ -41,6 +41,8 @@ status: 📝 待处理
 我们来看一个例子，它的主要作用就是把一段文字由英文翻译成中文：
 
 ```python
+import os
+
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
@@ -60,6 +62,9 @@ print(result)
 ```
 
 在这段代码里，我们创建了一个 ChatModel，也就是这里的 ChatOpenAI，它负责集成 OpenAI 的模型。在创建这个 ChatModel 的同时，我们指定了使用的具体模型，这里我们用到的是 GPT-4o-mini。
+
+> [!note] 变量名区分（2026-11-13）
+> 这里的 **`OPENAI_API_BASE` 在 langchain_openai 语境下是对的**（`ChatOpenAI` 识别它，也兼容 `OPENAI_BASE_URL`）；但原生 `openai` SDK 只认 `OPENAI_BASE_URL`，两套变量名不通用——对照 [[05｜OpenAI API：LLM编程的事实标准（上）]] 的同名警告块。
 
 正如我们上一讲所说，具体的实现是由社区生态提供的，所以，我们要想使用 ChatOpenAI 模型，需要安装 langchain-openai 这个包。有许多服务提供商会提供多个基础抽象的实现，比如，OpenAI 除了 ChatModel 之外，还提供了 Embedding 模型，所有与 OpenAI 相关的内容都会统一放到 langchain-openai这个包里，LangChain 社区将它们统一称为供应商（Provider），这里的 OpenAI 就是一个供应商。
 

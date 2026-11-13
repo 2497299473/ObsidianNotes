@@ -131,6 +131,9 @@ function，函数调用部分，其中包含了名字（name）和参数（argum
 
 下面这个例子里，我们开启了 logprobs，还把 top_logprobs 设置成了 2。
 
+<details>
+<summary>📄 完整 logprobs JSON 应答（120 行，点击展开；正文讲解只需看前两个 token）</summary>
+
 ```json
 {
   "id": "chatcmpl-123",
@@ -312,6 +315,8 @@ function，函数调用部分，其中包含了名字（name）和参数（argum
   "system_fingerprint": null
 }
 ```
+
+</details>
 
 在这个例子里，在 logprobs 的 content 字段里，我们看到了一个个 token 与其对应的概率（logprob）。bytes 表示这个 token 对应的 UTF-8 的字节表现形式，而 top_logprobs 则包含了每个 token 对应的备选 token 及其概率。
 

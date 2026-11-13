@@ -26,6 +26,7 @@ status: 📝 待处理
 
 > [!note] 形式说明（2026-09-23）
 > 本篇为专栏加餐视频，页面几乎无文字稿，正文仅保留「你将获得」要点。
+> ⚠️ **不可作为独立学习单元**（2026-11-13 标注）：无文字稿、无代码、无自检依据，需配合原视频观看；排期时不计入学时。
 
 <video src="https://media001.geekbang.org/c06c7f9f947871f082995017f0e90402/261163f3930d4a058e1e5f37a76bee76-305fce9df1f5076e5cde07aad125698a-sd.m3u8" controls="">Sorry, your browser doesn't support embedded videos.</video>
 

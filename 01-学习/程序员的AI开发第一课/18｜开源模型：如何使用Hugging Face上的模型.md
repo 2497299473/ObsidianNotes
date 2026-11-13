@@ -244,6 +244,7 @@ generated_ids = model.generate(
 
 ```python
 from transformers import AutoTokenizer, AutoModelForCausalLM, TextStreamer, TextIteratorStreamer
+from threading import Thread
 
 tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-0.5B-Instruct")
 model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2.5-0.5B-Instruct")
@@ -278,6 +279,7 @@ for text in streamer:
 ```python
 import torch
 from transformers import pipeline, TextIteratorStreamer
+from threading import Thread
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
