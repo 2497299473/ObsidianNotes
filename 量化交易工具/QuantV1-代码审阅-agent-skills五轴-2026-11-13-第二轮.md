@@ -58,3 +58,33 @@
 1. Summer 拍板 C-5 是否修（建议修，≤15 分钟含测例；也可裁决「登记 backlog 不修」——当前零命中，风险低）。
 2. FYI 两条留痕口径可并入下次 docs/evidence 批次，不单独开提交。
 3. 第一轮遗留观察项不变：est_chg live 误差带满 30 交易日后零网络重跑刷新（面 4 遗留）。
+
+---
+
+## 处置记录（2026-11-13 14:2x Summer 拍板「修 C-5」，当日执行完毕）
+
+**✅ 全部落地并推送**：QuantProject main `9cb6756..6ec7285`（3 个主题提交：fix `5f6e172` / evidence `eb0c571` / hygiene `6ec7285`）。
+
+### 修复批 `5f6e172`（fix，3 文件 +94/−31，生产代码零改动）
+
+1. **判据函数化**：`test_no_undeclared_module_globals` 的判据本体抽为 `tests/test_audit_facade.py` 模块级函数 `undeclared_module_globals(src, filename, sync_names)`——可被突变测例直打，不再埋在内嵌闭包里。
+2. **C-5 修法（比原建议更简）**：原建议「per-scope 局部名剔除」，实施时发现 symtable 的 `is_global()` 本身已按真实作用域解析（同作用域赋值/参数/推导目标不会 is_global）——**直接删掉整个 local_names 并集剔除**即可，无需 per-scope 重算。10 组对照探针验证：唯一行为差异就是「同名局部掩护」从放行变抓住；显式 `global X` + 赋值形态会被新判据标记（七域 grep 零 `global` 语句，无此形态；该形态本就该显式声明，属合理收紧）。
+3. **RED→GREEN 实测**：先抽函数保留旧语义 → 新增 `TestUndeclaredGlobalsJudge` 4 测例 → 主突变测例（helper 在 a() 局部 / b() 裸调）**修前红**（`[] != ['helper']`，其余 3 条对照绿）→ 删并集剔除 → **修后 35/35 OK**。
+4. **真实文件突变实验**：evidence.py 追加掩护形态（`_c5_mutation_a` 局部 helper / `_c5_mutation_b` 裸调）→ `test_no_undeclared_module_globals` 红（抓 `['helper']`）→ 还原后**逐字节一致**（bytes-identical=True）复绿。
+5. **验收标准逐条勾**：☑ ghost_dep 型突变被新判据抓住（内存 + 真实文件双实证）☑ 七域现源码零命中（35 项全绿含对偶判据本尊）☑ 全量不回归（1276 OK）。
+
+### evidence 批 `eb0c571` + hygiene 批 `6ec7285`
+
+- **全量 1276 OK (skipped=3)**（188.764s，较 1272 基线 +4 测例），log+meta+收集器落档 `evidence/probes/review_c5_*_20261113.*`，INDEX 已登记；meta.code_commit 记**测试开工时 HEAD**（9cb6756，本批收集器已按 FYI-2 口径修正字段语义）。
+- **release tip 指针 re-close 至 `eb0c571`**，终态审计 **23 PASS / 0 FAIL / 2 WARN**（P1-12 保持 PASS；2 WARN 同前：运行时数据未提交 + 已处置档案）。PRODUCTION=BLOCKED 不变，未动任何门禁。
+- README「Project State」新增 C-5 行、AGENTS ponytail lite 节追加 C-5 收口段（守护 31→35）。
+
+### FYI 两条的处置
+
+- FYI-2（meta 口径）：本批收集器已改——`code_commit` 记测试开工时 HEAD 并在 note 写明口径；历史件不改写。
+- FYI-1（24→31 的「+1」口径）：仍开放，留待下次 docs 批次补半句（本批未动第一轮历史留痕行）。
+
+### 过程如实记录
+
+- 全量测试用 subprocess 直跑收集器落盘（延续第一轮教训，零 PowerShell 重定向污染）；本轮 log 纯 UTF-8 无 BOM，sha16=35084e092a66a098。
+- 本轮零东财请求、零门禁/冻结件改动；GitHub 推送 fetch 先行无分叉，一次成功。
