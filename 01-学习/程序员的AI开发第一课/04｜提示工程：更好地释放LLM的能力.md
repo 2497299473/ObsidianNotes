@@ -11,6 +11,9 @@ tags:
 aliases:
   - 提示工程
   - 零样本与思维链
+stage: A
+difficulty: ⭐⭐
+estimated_hours: 0.75
 status: 📝 待处理
 ---
 
@@ -120,6 +123,21 @@ Aside from the Apple Remote, what other devices can control the program Apple Re
 
 ![](https://static001.geekbang.org/resource/image/37/5d/374e31c78c730e38615ace6f0d49675d.jpg?wh=4408x3110)
 
+<details>
+<summary>🔁 重绘版：ReAct 循环（mermaid；原图保留如上）</summary>
+
+```mermaid
+flowchart TD
+    Q["问题"] --> T["Thought：思考下一步做什么"]
+    T --> A["Action：选一个工具与参数"]
+    A --> X["本地代码执行动作<br/>搜索 / 计算 / 调 API"]
+    X --> O["Observation：把结果回传模型"]
+    O --> T
+    O -->|"信息已足够"| F["Final Answer"]
+```
+
+</details>
+
 在这个例子里，大模型为了完成一个大目标，需要不断地做一些任务。每个任务都会经历思考（Thought）、行动（Action）、观察（Observation）三个阶段。思考，决定了下一步的行动；行动是完成了一个具体的动作；而观察，则是对行动结果进行评估，决定是否要结束这个处理过程。
 
 如果说推理的部分都是大模型可以完成的，但行动要做的事恐怕就不是大模型可以单独完成的，比如搜索苹果遥控器，这显然就需要有一些其它的方式，帮助大模型完成这个搜索的动作。实际上，这也就是 ReAct 这项技术被称为框架的原因，它需要有一些其它的动作嵌入到这个执行过程中。
@@ -183,6 +201,14 @@ ReAct 框架：将大模型推理和一些行动能力结合起来，超越大�
 - [ ] 各写一条零样本 / 少样本 / 思维链提示词并横向对比
 - [ ] 在复杂推理题上加 “Let’s think step by step” 验证思维链效果
 - [ ] 精读文末 ReAct 提示词模板，画出 Thought/Action/Observation 循环
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 能各写一条零样本 / 少样本 / 思维链提示词，并说出各自适用场景 |
+| 🟡 进阶 | 能在同一道推理题上验证「样例只给答案 vs 给推导过程」的效果差异 |
+| 🔴 挑战 | 能画出 ReAct 模板的 Thought/Action/Observation 循环，解释「行动」为什么必须由本地代码执行 |
 
 ## 🔗 关联笔记
 

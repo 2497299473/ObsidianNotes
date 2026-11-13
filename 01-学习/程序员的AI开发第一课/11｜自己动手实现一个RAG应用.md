@@ -11,6 +11,9 @@ tags:
 aliases:
   - RAG实战
   - LangChain RAG
+stage: C
+difficulty: ⭐⭐⭐
+estimated_hours: 2
 status: 📝 待处理
 ---
 
@@ -353,6 +356,14 @@ Retriever，负责检索文档，供生成使用。
 - [ ] 用 similarity_search 与 max_marginal_relevance_search 各检索一次，对比结果差异
 - [ ] 把业务资料替换进 TextLoader，验证检索生成效果
 - [ ] 读懂 `itemgetter | retriever | format_docs` 与 `RunnablePassthrough.assign` 的组链原理
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 能跑通索引 + 检索生成全链（v4），库内问题答对、库外问题敢说不知道 |
+| 🟡 进阶 | 能对比 similarity_search 与 MMR 检索结果差异，解释 chunk_size/chunk_overlap 的作用 |
+| 🔴 挑战 | 能讲清 itemgetter \| retriever 靠 __ror__ 组链的原理，以及 RunnablePassthrough.assign 如何注入 context；能把业务资料替换入库验证效果 |
 
 ## 🔗 关联笔记
 

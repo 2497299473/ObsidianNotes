@@ -11,6 +11,9 @@ tags:
 aliases:
   - OpenAI API（下）
   - 流式应答与SSE
+stage: B
+difficulty: ⭐⭐⭐
+estimated_hours: 1
 status: 📝 待处理
 ---
 
@@ -346,6 +349,30 @@ SSE 是服务器发送事件（Server-Sent Event），它是一种服务器推�
 
 ![](https://static001.geekbang.org/resource/image/e7/85/e7d6b86a01fe0871eb5fb1dbfcc7c885.jpg?wh=3747x3449)
 
+<details>
+<summary>🔁 重绘版：常规应答 vs SSE 流式（mermaid 时序图；原图保留如上）</summary>
+
+```mermaid
+sequenceDiagram
+    participant C as 客户端
+    participant S as 大模型服务
+    rect rgb(240, 240, 240)
+    note over C,S: 常规应答：等全部生成完，一次性返回
+    C->>S: POST /chat/completions（stream=false）
+    S-->>C: 完整 message（等待全程）
+    end
+    rect rgb(230, 245, 230)
+    note over C,S: SSE 流式：生成一块推一块，首字即达
+    C->>S: POST /chat/completions（stream=true）
+    S-->>C: data: delta{role}
+    S-->>C: data: delta{"Hello"}
+    S-->>C: data: delta{" world"}
+    S-->>C: data: finish_reason=stop
+    end
+```
+
+</details>
+
 对比很多人熟悉的 Websocket 来看，我们会更清楚一些：
 
 二者都是建立在 HTTP 协议基础上， Websocket 建立了一套自己的通信协议，而 SSE 则是可以理解为建立在 HTTP 通信协议基础上的一层应用协议。
@@ -426,6 +453,14 @@ object，消息类型是 chat.completion.chunk，这说明它是一个消息块�
 - [ ] 在请求中打开 logprobs 与 top_logprobs，观察 token 概率返回结构
 - [ ] 分别用常规应答与 stream=true 调用同一提示词，对比首字延迟
 - [ ] 读一段 SSE 纯数据消息报文，解释为何 OpenAI 在 POST 上用 SSE 仍被接受
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 能读懂一份完整应答 JSON，标出 id / choices / message / usage / finish_reason |
+| 🟡 进阶 | 能对比常规应答与 stream=true 的首字延迟，解释 delta 与 message 的区别 |
+| 🔴 挑战 | 能解释 OpenAI 为何选 SSE 而非 WebSocket，以及 POST 上用 SSE 的规范争议与实际影响 |
 
 ## 🔗 关联笔记
 

@@ -11,6 +11,9 @@ tags:
 aliases:
   - LangChain生态
   - 如何使用LangChain
+stage: B
+difficulty: ⭐⭐
+estimated_hours: 0.75
 status: 📝 待处理
 ---
 
@@ -158,6 +161,14 @@ LangGraph，它提供了又一种构建 Agent 的方式，把 Agent 的状态流
 - [ ] 用 LCEL 写一条 model | parser 的最小链并 invoke
 - [ ] 从提示词社区拉取一个 ReAct 模板，对照理解工具调用提示词结构
 - [ ] 写一份“是否选用 LangChain”的决策清单（模型抽象 / 记忆 / 模板是否多余）
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 能说出 LangChain 三层生态（开发框架 / 社区生态 / 扩展生态）各包含什么 |
+| 🟡 进阶 | 能用 LCEL 写出 model \| parser 最小链并 invoke，解释管道符的声明式价值 |
+| 🔴 挑战 | 能为自己的项目写一份「是否选用 LangChain」决策清单（哪些抽象多余、哪些集成有价值） |
 
 ## 🔗 关联笔记
 

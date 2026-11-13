@@ -11,6 +11,9 @@ tags:
 aliases:
   - Hugging Face模型
   - pipeline调用
+stage: D
+difficulty: ⭐⭐⭐
+estimated_hours: 1.5
 status: 📝 待处理
 ---
 
@@ -324,6 +327,14 @@ Hugging Face 这个目前最知名的 AI 开源社区，它相当于程序员的
 - [ ] 用底层 AutoTokenizer + AutoModelForCausalLM 复现同一功能，对照三步流程
 - [ ] 加 TextStreamer / TextIteratorStreamer 实现流式输出
 - [ ] 配置 HF_ENDPOINT 镜像与 Access Token，浏览不同用途（translation 等）的模型
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 能用 pipeline 跑通 Qwen2.5-0.5B-Instruct 文本生成（CPU 可跑） |
+| 🟡 进阶 | 能用底层 AutoTokenizer + AutoModelForCausalLM 复现同一功能，对照三步流程（Token 化→生成→解码） |
+| 🔴 挑战 | 能用 TextIteratorStreamer + Thread 实现生成与输出异步的流式输出，解释为什么要开线程 |
 
 ## 🔗 关联笔记
 

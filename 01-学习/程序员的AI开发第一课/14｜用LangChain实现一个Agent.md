@@ -11,6 +11,9 @@ tags:
 aliases:
   - LangChain Agent
   - Agent工具
+stage: C
+difficulty: ⭐⭐⭐
+estimated_hours: 1.5
 status: 📝 待处理
 ---
 
@@ -322,6 +325,14 @@ LangChain 社区提供了大量的工具，你可以找一个自己感兴趣的�
 - [ ] 对照 create_react_agent + AgentExecutor，理清提示词模板与解析逻辑的分工
 - [ ] 用 ShellTool 改造代码，完成一次自然语言驱动的文件创建
 - [ ] 选一个 LangChain 社区工具（或 Toolkit）组装出新的 Agent
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 能跑通 @tool 版 Agent（v5 路径二），打印 name/description/args 验证提取结果 |
+| 🟡 进阶 | 能说清 create_react_agent 与 AgentExecutor 的分工（提示词解析 vs 循环控制），对比手写版的对应代码 |
+| 🔴 挑战 | 能选一个社区工具/Toolkit 组装新 Agent，并说出 ShellTool 的三层防护（隔离/白名单/人工确认）为什么缺一不可 |
 
 ## 🔗 关联笔记
 

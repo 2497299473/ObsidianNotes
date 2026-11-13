@@ -11,6 +11,9 @@ tags:
 aliases:
   - LLM技术视角
   - Token与Embedding
+stage: A
+difficulty: ⭐⭐
+estimated_hours: 0.75
 status: 📝 待处理
 ---
 
@@ -53,6 +56,21 @@ status: 📝 待处理
 下面就是一个例子，从这个例子中，我们可以清晰地看到文本不断生成的过程。
 
 ![](https://static001.geekbang.org/resource/image/0e/b6/0e0197a0fa059a0042b119335aa8ecb6.jpg?wh=5113x2234)
+
+<details>
+<summary>🔁 重绘版：Token 逐个生成循环（mermaid，可编辑可检索；原图保留如上）</summary>
+
+```mermaid
+flowchart TD
+    A["输入文本（提示词）"] --> B["模型预测下一个 Token 的概率分布"]
+    B --> C["按温度采样选出一个 Token<br/>温度低→偏高分词，温度高→更随机"]
+    C --> D["把 Token 追加到文本末尾"]
+    D --> E{"继续生成？"}
+    E -->|"是：未到停止条件"| B
+    E -->|"否：stop / 长度上限"| F["返回完整应答"]
+```
+
+</details>
 
 这里有一个问题需要澄清一下，虽然我们这里说的是添加一个词，但严格意义上说，每次添加的是一个 Token。Token 就是我们理解大模型编程的第一个重要概念。这个 Token 可能是我们传统理解的一个完整的单词，可能是一个单词组合，甚至可能是单词的一部分（这就是大模型可以“造出新词”的原因）。
 
@@ -151,6 +169,14 @@ https://developers.google.com/machine-learning/crash-course/embeddings?hl=zh-cn
 - [ ] 查清当前所用模型的上下文窗口与 Token 计费规则
 - [ ] 用同一提示词对比 temperature=0 与 temperature=1 的输出差异
 - [ ] 阅读文末 Inside GPT 两篇，补全生成机制心智模型
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 能讲清「一次添加一个 Token」如何推出上下文窗口、按 Token 计费、流式应答三件事 |
+| 🟡 进阶 | 能用同一提示词分别跑 temperature=0 与 1，解释输出差异的来源 |
+| 🔴 挑战 | 能解释 Embedding 查表与「One-Hot × 矩阵」的数学等价性，说出实现上为何不真的构造稀疏向量 |
 
 ## 🔗 关联笔记
 

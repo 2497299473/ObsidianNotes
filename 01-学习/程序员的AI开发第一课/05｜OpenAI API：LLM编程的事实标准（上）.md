@@ -11,6 +11,9 @@ tags:
 aliases:
   - OpenAI API（上）
   - 聊天补全请求参数
+stage: B
+difficulty: ⭐⭐
+estimated_hours: 1
 status: 📝 待处理
 ---
 
@@ -208,6 +211,14 @@ OpenAI API 包含了很多内容，比如，文本生成、图像生成、文本
 - [ ] 为同一条提示词分别设置 temperature / max_completion_tokens，对比输出与成本
 - [ ] 阅读 tools 与 tool_choice 说明，写一个可调用工具的请求示例
 - [ ] 通读模型参数（seed / top_p / frequency_penalty），标出自己真正会用的
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 能调通 /v1/chat/completions，说出 model 与 messages 两个核心参数的作用 |
+| 🟡 进阶 | 能解释 temperature / max_completion_tokens / stream 对输出与成本的影响，并各做一次对比实验 |
+| 🔴 挑战 | 能写出带 tools 与 tool_choice 的请求，解释 tool_choice 的 none/auto/required/指定工具四种取值的行为差异 |
 
 ## 🔗 关联笔记
 

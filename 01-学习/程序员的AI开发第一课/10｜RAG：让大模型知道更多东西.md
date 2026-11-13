@@ -11,6 +11,9 @@ tags:
 aliases:
   - RAG
   - 检索增强生成
+stage: C
+difficulty: ⭐⭐⭐
+estimated_hours: 0.75
 status: 📝 待处理
 ---
 
@@ -56,6 +59,20 @@ RAG 是 Retrieval-Augmented Generation 的缩写，也就是检索增强生成�
 下面是一个 RAG 系统处理用户请求的极简流程示意图：
 
 ![](https://static001.geekbang.org/resource/image/88/2c/88732f87e0aaa2ac2ef1a7410668e72c.jpg?wh=1722x1126)
+
+<details>
+<summary>🔁 重绘版：RAG 极简流程（mermaid；原图保留如上）</summary>
+
+```mermaid
+flowchart LR
+    U["用户提问"] --> R["在业务资料中检索相关内容"]
+    R --> D["取回相关文档片段"]
+    D --> P["片段 + 问题拼成完整提示词"]
+    P --> M["大模型生成"]
+    M --> A["回复用户"]
+```
+
+</details>
 
 用户发起请求
 
@@ -139,6 +156,14 @@ RAG 是 Retrieval-Augmented Generation 的缩写，也就是检索增强生成�
 - [ ] 对比 SQL like 字面匹配与向量语义匹配，写清各自适用场景
 - [ ] 画出索引四步（提取 → 拆分 → Embedding → 入库）流程图
 - [ ] 了解混合搜索 / Rerank / 知识图谱 RAG 各自解决什么痛点
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 能画出索引四步（提取→拆分→Embedding→入库）与检索生成流程图 |
+| 🟡 进阶 | 能对比 SQL like 与向量语义匹配的适用场景，各举一例 |
+| 🔴 挑战 | 能说清混合搜索 / Rerank / 知识图谱 RAG 各自解决什么痛点，并为一个业务场景选型 |
 
 ## 🔗 关联笔记
 

@@ -11,6 +11,9 @@ tags:
 aliases:
   - LangChain核心抽象
   - ChatModel与链
+stage: B
+difficulty: ⭐⭐⭐
+estimated_hours: 1.5
 status: 📝 待处理
 ---
 
@@ -263,6 +266,14 @@ OutputParser：负责处理输出，许多输出解析器里包含了格式指�
 - [ ] 用 ChatPromptTemplate 改写一条硬编码提示词，验证占位符替换
 - [ ] 实现一条 prompt | model | parser 链，分别接 StrOutputParser 与 JsonOutputParser
 - [ ] 调用 parser.get_format_instructions()，看格式指令实际写入了什么提示词
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 能跑通 ChatOpenAI 的 invoke 与 stream，说出 ChatModel 与 LLM 的关系 |
+| 🟡 进阶 | 能组装 prompt \| model \| parser 链，分别接 StrOutputParser 与 JsonOutputParser |
+| 🔴 挑战 | 能解释 get_format_instructions 如何把格式约束写进提示词，以及 partial_variables 与 input_variables 的分工 |
 
 ## 🔗 关联笔记
 
