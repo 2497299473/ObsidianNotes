@@ -341,7 +341,7 @@ Answer: The total price of 1 kg of apples and 2 kg of bananas is 22.
 
 | 层次 | 检查项 |
 |------|--------|
-| 🟢 基础 | 能跑通手写 ReAct Agent（v5 路径一），水果价格题在 max_turns 内收敛 |
+| 🟢 基础 | 能跑通手写 ReAct Agent（v5a，即路径一），水果价格题在 max_turns 内收敛 |
 | 🟡 进阶 | 能给 Agent 新增一个动作函数并同步写进提示词，验证模型能正确调用 |
 | 🔴 挑战 | 能解释提示词三段结构各自职责，说清 PAUSE 的控制权交接机制；能识别并防范 eval 无沙箱风险 |
 

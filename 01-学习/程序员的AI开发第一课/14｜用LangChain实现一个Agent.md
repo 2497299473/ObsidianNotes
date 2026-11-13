@@ -330,7 +330,7 @@ LangChain 社区提供了大量的工具，你可以找一个自己感兴趣的�
 
 | 层次 | 检查项 |
 |------|--------|
-| 🟢 基础 | 能跑通 @tool 版 Agent（v5 路径二），打印 name/description/args 验证提取结果 |
+| 🟢 基础 | 能跑通 @tool 版 Agent（v5b，即路径二），打印 name/description/args 验证提取结果 |
 | 🟡 进阶 | 能说清 create_react_agent 与 AgentExecutor 的分工（提示词解析 vs 循环控制），对比手写版的对应代码 |
 | 🔴 挑战 | 能选一个社区工具/Toolkit 组装新 Agent，并说出 ShellTool 的三层防护（隔离/白名单/人工确认）为什么缺一不可 |
 
