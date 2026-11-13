@@ -260,6 +260,8 @@ OutputParser：负责处理输出，许多输出解析器里包含了格式指�
 
 这三个抽象是最核心的，也是最容易理解。我建议你花些时间，尝试着写些代码，增进对于它们的熟悉。欢迎你在留言区分享你在练习中的心得体会。
 
+> [!note] 📮 库内出口：本库没有留言区——在 `code/ai-app/v1/chat.py` 上把 `ChatOpenAI` 换成 `prompt | model | StrOutputParser` 链并跑通，即完成本次练习。
+
 ## ✅ 待办事项
 
 - [ ] 跑通 ChatOpenAI 同步 invoke 与 stream 两个示例
@@ -280,9 +282,9 @@ OutputParser：负责处理输出，许多输出解析器里包含了格式指�
 
 ## 🔗 关联笔记
 
-- [[07｜LangChain：一个AI应用开发生态]] | LangChain 生态（07）
-- [[09｜从零实现一个角色扮演的聊天机器人]] | 聊天机器人（09）
-- [[05｜OpenAI API：LLM编程的事实标准（上）]] | OpenAI API（05）
+- ⬅️ 前置：[[07｜LangChain：一个AI应用开发生态]]（LangChain 生态）
+- ➡️ 后续：[[09｜从零实现一个角色扮演的聊天机器人]]（聊天机器人）
+- 🔗 关联：[[05｜OpenAI API：LLM编程的事实标准（上）]]（OpenAI API）
 
 ## 📎 参考资料
 

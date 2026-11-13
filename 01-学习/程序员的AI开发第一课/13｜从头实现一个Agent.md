@@ -330,6 +330,8 @@ Answer: The total price of 1 kg of apples and 2 kg of bananas is 22.
 
 尝试修改我提供的例子，给它增加一些动作，让这个 Agent 实现更多的能力。欢迎在留言区分享你的改造心得。
 
+> [!note] 📮 库内出口：本库没有留言区——在 `code/ai-app/v5/agent_handwritten.py` 加一个动作函数并同步写进提示词，模型能正确调用即为通过。
+
 ## ✅ 待办事项
 
 - [ ] 跑通基础 Agent 类，确认 temperature=0 下输出稳定
@@ -350,10 +352,9 @@ Answer: The total price of 1 kg of apples and 2 kg of bananas is 22.
 
 ## 🔗 关联笔记
 
-- [[12｜Agent：从聊天到工作]] | Agent 概念（12）
-- [[14｜用LangChain实现一个Agent]] | LangChain 实现（14）
-- [[04｜提示工程：更好地释放LLM的能力]] | ReAct（04）
-- [[03｜提示词：怎样与大模型沟通？]] | 提示词（03）
+- ⬅️ 前置：[[12｜Agent：从聊天到工作]]（Agent 概念）
+- ➡️ 后续：[[14｜用LangChain实现一个Agent]]（LangChain 实现）
+- 🔗 关联：[[04｜提示工程：更好地释放LLM的能力]]（ReAct）、[[03｜提示词：怎样与大模型沟通？]]（提示词）
 
 ## 📎 参考资料
 

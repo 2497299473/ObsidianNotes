@@ -319,6 +319,8 @@ export GITHUB_REPOSITORY="your-github-repository"
 
 LangChain 社区提供了大量的工具，你可以找一个自己感兴趣的，用它来改造这一讲的代码，实现一个新的 Agent。欢迎在留言区分享你的改造心得。
 
+> [!note] 📮 库内出口：本库没有留言区——在 `code/ai-app/v5/agent_langchain.py` 的 `tools` 列表里加一个社区工具并跑通，同时按 🔴 补齐三层防护说明。
+
 ## ✅ 待办事项
 
 - [ ] 跑通 @tool 版 calculate / ask_fruit_unit_price，打印 name / description / args 验证提取结果
@@ -339,10 +341,9 @@ LangChain 社区提供了大量的工具，你可以找一个自己感兴趣的�
 
 ## 🔗 关联笔记
 
-- [[13｜从头实现一个Agent]] | 从头实现（13）
-- [[12｜Agent：从聊天到工作]] | Agent 概念（12）
-- [[04｜提示工程：更好地释放LLM的能力]] | ReAct 提示词（04）
-- [[15｜长期记忆：让大模型更了解你]] | 后续（15）
+- ⬅️ 前置：[[13｜从头实现一个Agent]]（从头实现）
+- ➡️ 后续：[[15｜长期记忆：让大模型更了解你]]（长期记忆）
+- 🔗 关联：[[12｜Agent：从聊天到工作]]（Agent 概念）、[[04｜提示工程：更好地释放LLM的能力]]（ReAct 提示词）
 
 ## 📎 参考资料
 

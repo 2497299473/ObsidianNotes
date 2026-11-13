@@ -368,10 +368,13 @@ sequenceDiagram
     S-->>C: data: delta{"Hello"}
     S-->>C: data: delta{" world"}
     S-->>C: data: finish_reason=stop
+    S-->>C: data: [DONE]（流结束标记）
     end
 ```
 
 </details>
+
+> 图注：原图若无法加载，展开上方 🔁 重绘版。另注：`finish_reason=stop` 帧之后，OpenAI 还会发一帧 `data: [DONE]` 标记流结束（正文未展开，客户端 SDK 会自动处理）。
 
 对比很多人熟悉的 Websocket 来看，我们会更清楚一些：
 
@@ -447,6 +450,8 @@ object，消息类型是 chat.completion.chunk，这说明它是一个消息块�
 
 除了聊天补全接口，还有一个 Embeddings API 在开发大模型应用中是非常常用的。我建议你去学习一下，然后在留言区分享你的心得体会。
 
+> [!note] 📮 库内出口：本库没有留言区——把 Embeddings API 的调用写进 `code/ai-app/v4/index.py`（替换 `OpenAIEmbeddings`），跑通索引即完成验收。
+
 ## ✅ 待办事项
 
 - [ ] 抓取一次完整的聊天补全 JSON 应答，对照 id / choices / usage 字段做标注
@@ -467,9 +472,9 @@ object，消息类型是 chat.completion.chunk，这说明它是一个消息块�
 
 ## 🔗 关联笔记
 
-- [[05｜OpenAI API：LLM编程的事实标准（上）]] | 请求参数（05）
-- [[04｜提示工程：更好地释放LLM的能力]] | 提示工程（04）
-- [[07｜LangChain：一个AI应用开发生态]] | LangChain 生态（07）
+- ⬅️ 前置：[[05｜OpenAI API：LLM编程的事实标准（上）]]（请求参数）
+- ➡️ 后续：[[07｜LangChain：一个AI应用开发生态]]（LangChain 生态）
+- 🔗 关联：[[04｜提示工程：更好地释放LLM的能力]]（提示工程）
 
 ## 📎 参考资料
 
