@@ -76,3 +76,30 @@
 1. Summer 拍板 R-A 修法（包装 vs 清单，工作量都 ≤30 分钟含测例）；C-1/C-2 可同批顺手做。
 2. 修复后按惯例：本地 commit → 全量回归 → evidence 落档 → push（fetch 先行）。
 3. C-3 指针随下次 evidence 提交闭合；C-4 一句 docstring 修正可并入同批。
+
+---
+
+## 处置记录（2026-11-13 12:0x Summer 拍板「①包装 + ②守护测例同批，C-1/C-2 顺手做」，当日执行完毕）
+
+**✅ 全部落地并推送**：QuantProject main `07046d9..9cb6756`（3 个主题提交）。
+
+### 修复批 `77b0eb6`（fix，6 文件 +178/−7）
+
+1. **R-A**：`pit_trading_days`/`pit_lag_floor` 改 `_check` 同款转发包装（`audit_project.py`）。守护测例 `test_pit_helper_injection_reaches_domain` **修前红/修后绿实测**（RED：注入假日历后仍返回真实日历 3195 项；GREEN：返回注入值）。
+2. **C-1**：`git_worktree_clean` 补进 evidence 的 common 显式导入清单；`TestExplicitImports` 增对偶判据 `test_no_undeclared_module_globals`（symtable：模块级自由变量 ⊆ import ∪ 模块级绑定 ∪ `_SYNC_NAMES` ∪ builtins）+ 实例钉住测例。
+3. **C-2**：新增 `TestSyncNamesCoverage` 四项——需注入裸绑定全登记 / **静态豁免集与实际未登记裸绑定精确相等**（13 个只读词表/类 re-export 显式钉死，新增豁免须显式改测例）/ 豁免名不得是函数 / `_SYNC_NAMES` 无死条目；另加 pit 包装旧路径死亡断言（`assertIsNot` 域实现）。
+4. **C-4**：`holidays_calendar.load_holidays` docstring 如实声明容忍面宽于旧实现（代码零改动）。
+5. **突变实验 3/3 如期变红后还原**：拆 R-A 包装 → 2 测例红；拆 C-1 导入 → 实例钉住红（对偶判据按设计放行已登记 `_SYNC_NAMES` 名，属预期）；造未登记裸绑定 → 2 测例红。
+6. 守护 `test_audit_facade` **24→31 项**；README「Project State」与 AGENTS ponytail lite 节均已留痕。
+
+### evidence 批 `b02dc0d` + hygiene 批 `9cb6756`
+
+- **全量 1272 OK (skipped=3)**（203.080s，较 1264 基线 +8 测例），log+meta+收集器落档 `evidence/probes/review_ra_c1c2_*_20261113.*`，INDEX 已登记；meta 双记测试时 HEAD 与终态 commit（内容逐字节一致）。
+- **C-3 已闭合**：release tip 指针 re-close 至 `b02dc0d`，审计 P1-12 由 WARN 转 **PASS**。
+- 终态审计：**23 PASS / 0 FAIL / 2 WARN**（P1-11 运行时数据未提交=纵向证据约定常态；P1-2 已处置档案=D3-07 既有裁决）。PRODUCTION=BLOCKED 不变，未动任何门禁。
+
+### 过程如实记录
+
+- 全量测试两次被工具超时误杀（PowerShell 包装层 kill 不带走 python 子进程 + `*>` 重定向产 UTF-16 污染日志）→ 改用 subprocess 直跑收集器落盘，残件已清理，终态 log 为纯净 UTF-8 无 BOM。
+- push 时 openssl 后端被间歇重置（与 11-08 相反方向）→ 一次性 `-c http.sslBackend=schannel` 即通，**未改仓库配置**（repo 级仍 openssl）。
+- 本轮零东财请求、零门禁/冻结件改动。
