@@ -365,6 +365,9 @@ Retriever，负责检索文档，供生成使用。
 | 🟡 进阶 | 能对比 similarity_search 与 MMR 检索结果差异，解释 chunk_size/chunk_overlap 的作用 |
 | 🔴 挑战 | 能讲清 itemgetter \| retriever 靠 __ror__ 组链的原理，以及 RunnablePassthrough.assign 如何注入 context；能把业务资料替换入库验证效果 |
 
+> ➡️ 本阶段验收：[[01-学习/程序员的AI开发第一课/99-阶段C检查点-应用开发|99-阶段C检查点]]
+> 🧭 清单分工：**✅ 待办事项**＝要做的事；**🎯 自检**＝做完怎么验；**思考题 / 练习题**＝原课讨论题（本库没有留言区，可跳过）
+
 ## 🔗 关联笔记
 
 - [[10｜RAG：让大模型知道更多东西]] | RAG 概念（10）

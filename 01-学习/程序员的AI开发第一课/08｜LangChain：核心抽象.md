@@ -275,6 +275,9 @@ OutputParser：负责处理输出，许多输出解析器里包含了格式指�
 | 🟡 进阶 | 能组装 prompt \| model \| parser 链，分别接 StrOutputParser 与 JsonOutputParser |
 | 🔴 挑战 | 能解释 get_format_instructions 如何把格式约束写进提示词，以及 partial_variables 与 input_variables 的分工 |
 
+> ➡️ 本阶段验收：[[01-学习/程序员的AI开发第一课/99-阶段B检查点-API与框架|99-阶段B检查点]]
+> 🧭 清单分工：**✅ 待办事项**＝要做的事；**🎯 自检**＝做完怎么验；**思考题 / 练习题**＝原课讨论题（本库没有留言区，可跳过）
+
 ## 🔗 关联笔记
 
 - [[07｜LangChain：一个AI应用开发生态]] | LangChain 生态（07）
