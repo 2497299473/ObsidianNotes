@@ -1,4 +1,5 @@
-"""v5 路径二：LangChain 版 ReAct Agent。来源：14 篇。
+"""v5b（路径二）：LangChain 版 ReAct Agent。来源：14 篇。
+定位：单点能力演示——不继承 v2–v4 的会话记忆/角色/RAG（原作的教学取舍，见 README）。
 教学基线 LangChain 0.3.x；1.x 下 langchain.agents 旧接口迁入 langchain-classic（见 14 篇版本注记）。
 ⚠️ eval 无沙箱，仅限教学演示。"""
 from langchain.agents import AgentExecutor, create_react_agent

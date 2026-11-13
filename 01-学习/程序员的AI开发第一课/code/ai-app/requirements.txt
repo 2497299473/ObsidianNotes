@@ -1,0 +1,12 @@
+# v1–v5 公共依赖（教学基线 LangChain 0.3.x，与总览索引版本口径一致）
+# 版本区间经 PyPI 元数据核实（2026-11-13）：0.3.x 末版相互兼容，
+# langchain-core 被各方约束在 <1.0；pip 实跑验证待环境就绪。
+# 若环境里已装 LangChain 1.x：本代码库按 0.3.x 编写，请新建虚拟环境安装本文件，
+# 或改装 langchain-classic 并按 14/16 篇版本注记改 import（依审查 J6，不改代码迁就 1.x）。
+langchain>=0.3,<0.4
+langchain-openai>=0.3,<0.4
+langchain-community>=0.3,<0.4
+langchain-chroma>=0.2,<0.3
+langchain-text-splitters>=0.3,<0.4
+tiktoken>=0.7,<1.0
+openai>=1.104.2,<3.0

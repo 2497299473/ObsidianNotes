@@ -1,6 +1,8 @@
 """v6：+ 长期记忆（mem0 跨会话）。来源：15 篇。
+定位：以 09 篇角色机器人为底座的单点能力演示——不含 v5 的 Agent，也不带 v2 式会话历史
+（每次 invoke 独立，跨会话记忆由 mem0 提供；原作的教学取舍，见 README）。
 增量：调用前 search 取上下文 + 调用后 add 存交互；重启进程记忆仍在。
-验收：重启后仍记得用户偏好。
+验收：重启后仍记得用户偏好。add/search 最小验证示例见 15 篇正文（本文件是接入聊天循环后的形态）。
 ⚠️ mem0 版本变动剧烈（教学基线 0.1.x / version v1.1）；ada-002 已过时，新项目建议 text-embedding-3-small。"""
 from mem0 import Memory
 from langchain_openai import ChatOpenAI

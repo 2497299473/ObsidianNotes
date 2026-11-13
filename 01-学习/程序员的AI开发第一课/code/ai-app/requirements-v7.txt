@@ -1,0 +1,4 @@
+# v7 增量依赖（在 requirements.txt 基础上另装）
+# RedisSemanticCache 实例化需要 redis-py 客户端；Redis Stack 容器本身不提供 Python 包。
+# 服务端另需：docker run -p 6379:6379 redis/redis-stack-server:latest
+redis>=5,<7

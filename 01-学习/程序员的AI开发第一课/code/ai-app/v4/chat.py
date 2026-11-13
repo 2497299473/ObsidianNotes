@@ -1,6 +1,8 @@
 """v4：+ 业务知识（RAG 检索生成侧）。来源：11 篇。
 增量：Retriever + itemgetter 组链 + RunnablePassthrough.assign 注入 context。
 先跑 index.py。验收：库内问题答对、库外问题敢说不知道。
+注：ChatOpenAI() 未显式传 model，忠实 11 篇原文（库默认模型，未实测具体档位）；
+与其它版本对齐可显式传 model="gpt-4o-mini"。
 📊 量化视角：语料带日期时，检索前须按 publish_date <= as_of 裁剪（见 11 篇警告块）。"""
 from operator import itemgetter
 from typing import List
