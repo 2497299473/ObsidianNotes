@@ -139,6 +139,8 @@ interface ImportMeta {
 
 ```typescript
 // types/express.d.ts
+import "express"; // 关键：先让本文件成为模块，declare module 才是"增强"而非"覆盖"
+
 declare module "express" {
   interface Request {
     user?: {
@@ -148,6 +150,11 @@ declare module "express" {
   }
 }
 ```
+
+> [!warning] `declare module "x"` 有两种语义
+> - 文件**不是**模块（无顶层 `import`/`export`）时 = **声明一个新模块**，会顶掉同名包（如 `@types/express`）的全部类型——下游 `import { Response } from "express"` 反而报"没有导出成员"。
+> - 文件**是**模块（有顶层 `import`/`export`）时 = **增强已有模块**，类型正确合并。
+> 扩展第三方库必须让文件先成为模块（首行 `import "express";` 即可）。这是"编译不报错、错在下游"的静默语义错误，务必注意。
 
 ---
 
@@ -199,11 +206,14 @@ function createUser(name, age) {
 ### 4.2 查找优先级
 
 ```
+模块解析顺序（找到即用）：
 1. 包自身的 types 字段（package.json）
 2. 包根目录下的 index.d.ts
 3. node_modules/@types/xxx/index.d.ts
-4. 项目内的 declare module
 ```
+
+> [!warning] 项目内的 `declare module` 不是"兜底"，而是"覆盖/增强"
+> 它不参与上面的解析顺序：文件**不是**模块时 = 声明新模块，会**顶掉**同名包的全部类型；文件**是**模块时 = 增强已有模块（目标必须存在，否则 `TS2664`）。详见 §2.5。
 
 ### 4.3 类型缺失时的处理
 
@@ -212,7 +222,8 @@ function createUser(name, age) {
 // @ts-ignore
 import something from "untyped-lib";
 
-// 方案二：写一个最简声明
+// 方案二：写一个最简声明（单独放在无 import/export 的 .d.ts 里，如 types/untyped-lib.d.ts）
+// 注意：这里是要"声明新模块"，与 2.5 的"增强已有模块"相反——本文件不能是模块
 declare module "untyped-lib" {
   const value: any;
   export default value;
@@ -237,9 +248,9 @@ declare module "untyped-lib" {
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.js"
     }
   },
   "files": ["dist", "README.md"]

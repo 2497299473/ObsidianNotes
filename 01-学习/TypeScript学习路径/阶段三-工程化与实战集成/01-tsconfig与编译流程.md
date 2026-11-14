@@ -250,7 +250,7 @@ tsc --build
 ```
 
 ```typescript
-import { Button } from "@components/Button"; // TS 编译时解析
+import { Button } from "@/components/Button"; // TS 编译时解析（与上方 @/* 映射一致）
 // 但运行时 Node.js 不认识 @/，需要额外配置：
 // 方案一：tsconfig-paths（ts-node 场景）
 // 方案二：Vite/Webpack 的 alias 配置
@@ -299,7 +299,7 @@ function parse(data) {  // 隐式 any → 报错
 |------|--------|
 | 🟢 基础 | 能解释 `target`、`module`、`outDir`、`rootDir`、`strict` 的作用 |
 | 🟢 基础 | 能使用 `tsc`、`tsc --watch`、`tsc --noEmit` |
-| 🟡 进阶 | 能列出 strict 模式的 7 项子开关及其作用 |
+| 🟡 进阶 | 能列出 strict 模式的 8 项子开关及其作用 |
 | 🟡 进阶 | 能配置 Project References 拆分大型项目 |
 | 🔴 挑战 | 能用 `tsc --generateTrace` 分析编译性能瓶颈 |
 

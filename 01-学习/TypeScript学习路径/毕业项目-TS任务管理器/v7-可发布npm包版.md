@@ -82,17 +82,7 @@ export default defineConfig({
       },
       "require": {
         "types": "./dist/index.d.ts",
-        "default": "./dist/index.cjs"
-      }
-    },
-    "./types": {
-      "import": {
-        "types": "./dist/types/index.d.ts",
-        "default": "./dist/types/index.mjs"
-      },
-      "require": {
-        "types": "./dist/types/index.d.ts",
-        "default": "./dist/types/index.cjs"
+        "default": "./dist/index.js"
       }
     }
   },
@@ -101,7 +91,7 @@ export default defineConfig({
     "dev": "tsx src/main.ts",
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/ --ext .ts",
+    "lint": "eslint src",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "check": "npm run typecheck && npm run lint && npm run test && npm run build",
@@ -173,7 +163,7 @@ npm install ts-task-manager
 
 \`\`\`typescript
 import { createTaskState, addTask, completeTask, getStats } from "ts-task-manager";
-import type { Task } from "ts-task-manager/types";
+import type { Task } from "ts-task-manager";
 
 // 创建状态
 let state = createTaskState();
@@ -250,7 +240,7 @@ npm run build
 
 # 检查 dist/ 目录
 ls dist/
-# 应有：index.cjs, index.mjs, index.d.ts
+# 应有：index.js（CJS）, index.mjs（ESM）, index.d.ts
 ```
 
 ### 2. npm pack 验证包内容
@@ -319,7 +309,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           registry-url: https://registry.npmjs.org
       - run: npm ci
       - run: npm run check

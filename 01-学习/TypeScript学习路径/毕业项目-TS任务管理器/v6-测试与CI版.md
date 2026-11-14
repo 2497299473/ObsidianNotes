@@ -103,11 +103,11 @@ import {
 } from "../src/core/entity-manager";
 import type { Task } from "../src/types/task";
 
+// 不传 createdAt：它是系统字段，由 createEntity 统一填充（CreateInput<Task> 本身已排除它）
 const createTaskInput = (title: string, priority: Task["priority"] = "normal") => ({
   title,
   priority,
   completed: false,
-  createdAt: new Date(),
 });
 
 describe("EntityManager", () => {
@@ -279,7 +279,8 @@ describe("TaskService", () => {
 ```typescript
 // __tests__/type-tools.test.ts
 import { describe, it, expectTypeOf } from "vitest";
-import type { CreateInput, UpdateInput, DeepPartial, CrudEvent } from "../src/utils/type-tools";
+import type { CreateInput, UpdateInput, DeepPartial } from "../src/utils/type-tools";
+import type { CrudEvent } from "../src/types/events";
 import type { Task } from "../src/types/task";
 
 describe("type-tools", () => {
@@ -307,6 +308,8 @@ describe("type-tools", () => {
   });
 });
 ```
+
+> ⚠️ **类型测试要真的被类型检查**：v5 的 tsconfig `include: ["src/**/*"]`（配 `rootDir: "./src"`）会把 `__tests__/` 排除在 `tsc --noEmit` 之外，而 `vitest run` 走 esbuild 会擦除 `import type`、`expectTypeOf` 运行时是 no-op——这条"类型安全测试"在默认命令链里**从未被检查过**。两种走法任选：① 跑 `vitest --typecheck`（类型断言建议放 `*.test-d.ts`）；② 给类型检查单开一份 `tsconfig.typecheck.json`（`rootDir: "."`、`include: ["src/**/*", "__tests__/**/*"]`），用 `tsc -p tsconfig.typecheck.json --noEmit` 检查。直接把 `__tests__` 塞进 v5 那份 tsconfig 会报 TS6059（不在 rootDir 下）。
 
 ---
 
@@ -383,7 +386,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [18, 20, 22]
+        node-version: [22, 24] # 18/20 已 EOL，只测支持期版本
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -407,8 +410,8 @@ jobs:
     "dev": "tsx src/main.ts",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/ --ext .ts",
-    "lint:fix": "eslint src/ --ext .ts --fix",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
     "format": "prettier --write \"src/**/*.ts\" \"__tests__/**/*.ts\"",
     "test": "vitest run",
     "test:watch": "vitest",
