@@ -118,7 +118,7 @@ flowchart TB
 | `tuple` | `[T1, T2, ...]` | TS 元组固定长度和类型 |
 | `dict` | `Record<K, V>` / `{ [key: K]: V }` | TS 有多种映射类型 |
 | `set` | `Set<T>` | 一致 |
-| `Optional[T]` | `T \| null` / `T \| undefined` | TS 用联合类型表达 |
+| `Optional[T]` | `T \| null` / `T \| undefined` | TS 用联合类型表达；`None` 是单值，一一对应首选 `T \| null`，`undefined` 留给可选参数/属性 |
 | `Union[T1, T2]` | `T1 \| T2` | TS 联合类型是语言级核心特性 |
 | `Callable` | `(...args: A) => R` | TS 函数类型更灵活 |
 | `TypeVar` | 泛型 `<T>` | TS 泛型更强大，支持约束和条件 |
@@ -198,6 +198,19 @@ flowchart TB
 
 > [!tip] 为什么推荐 tsx 而不是 ts-node
 > tsx 基于 esbuild，启动快 10-20 倍，且原生支持 ESM 和 TypeScript。对于习惯了 `python script.py` 的 Python 开发者，`tsx script.ts` 是最接近的体验。
+
+---
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 合上笔记，按顺序写出 8 篇正文的编号与主题，并给每篇配一个 Python 锚点（如「04 ↔ asyncio」）；写不出时对照本篇「笔记索引」表，8 篇里至少 6 篇正确才算过 |
+| 🟢 基础 | 用「Python → TypeScript 核心概念映射速查」把 `list[dict[str, int]]`、`Optional[tuple[str, int]]`、`Callable[[int], str]` 写成 TS 类型，三个写进同一个 `map.ts` 后 `tsc --noEmit --strict map.ts` 零错误 |
+| 🟡 进阶 | 接到「把现有 FastAPI 服务迁到 Node」的需求，从 8 篇里挑出必精读的 3 篇、可速览的 2 篇，并各写 1 条理由（必读至少要包含 07 场景 1、05 工程化、04 异步） |
+| 🟡 进阶 | 说出三个复习检查点各覆盖哪几篇，以及 🟡/🔴 不通过时该回哪一篇（对照本篇「复习检查点索引」表，3/3 正确） |
+| 🔴 挑战 | 按 27h 正文 + 6h 检查点 + 15h 项目 = 48h 排一份两周计划表，写清 03（5h）放在哪天，并用一句话说明为什么不拆碎 |
+| 🔴 挑战 | 说清本路径（Python 对照视角）与姐妹路径「TypeScript学习路径」（系统学习视角）的分工，并各举 1 个「该转去另一条路」的具体场景（如从没写过 Python 的同事该走哪条） |
 
 ---
 

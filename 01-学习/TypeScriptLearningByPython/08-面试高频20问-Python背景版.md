@@ -178,11 +178,13 @@ T = TypeVar("T", bound=list)  # 只能约束为 list 的子类
 // interface：可声明合并（扩展第三方库的关键）
 interface Window { title: string; }
 interface Window { ts: number; }  // 自动合并
-const w: Window = { title: "Hi", ts: 5 };  // ✅
+declare const w: Window;          // 只声明不构造：真实 Window 有 200+ 属性，字面量赋值会报 TS2740
+const wTitle: string = w.title;   // ✅ 合并后的属性都在
+const wTs: number = w.ts;
 
 // type：支持联合类型、映射类型、条件类型
 type Status = "active" | "inactive";  // 联合类型
-type Readonly<T> = { readonly [K in keyof T]: T[K] };  // 映射类型
+type ReadonlyUser<T> = { readonly [K in keyof T]: T[K] };  // 映射类型（内置 Readonly 就是这么实现的）
 ```
 
 **生产经验**：优先用 `interface`（可扩展），用 `type` 处理联合类型、映射类型、工具类型。`interface` 不能 `extends` 联合类型。
@@ -255,10 +257,15 @@ const results = await Promise.all([
 ```python
 # Python: 可配置错误处理
 import asyncio
-results = await asyncio.gather(
-    task1(), task2(), task3(),
-    return_exceptions=True  # 不中断，错误作为返回值
-)
+
+async def main() -> None:
+    results = await asyncio.gather(
+        task1(), task2(), task3(),
+        return_exceptions=True  # 不中断，错误作为返回值
+    )
+    print(results)
+
+asyncio.run(main())  # 顶层不能直接 await
 ```
 
 **生产经验**：TS 中如果需要部分失败不中断，用 `Promise.allSettled()`。
@@ -282,7 +289,9 @@ results = await asyncio.gather(
 setTimeout(() => console.log("1. setTimeout"), 0);
 setImmediate(() => console.log("2. setImmediate"));
 Promise.resolve().then(() => console.log("3. Promise"));
-// 输出: 3 → 1 → 2
+// 微任务一定最先（3 最先）；但主模块里 setTimeout(0) 与 setImmediate 的先后**不确定**
+// （取决于进程启动性能，Node 官方文档明示）；只有在 I/O 回调内部 setImmediate 才总是先。
+// 下例在本机多次跑可能得 3→1→2 或 3→2→1，不要背成确定结论。
 ```
 
 **生产经验**：Node.js 的微任务（Promise）在每阶段之间执行，优先级高于宏任务。理解这个顺序对调试异步 bug 至关重要。
@@ -319,6 +328,9 @@ type R = FilterString<"a" | 1 | "b" | 2>;  // "a" | "b"
 **结论**：映射类型可以**批量变换**对象类型的所有属性，Python 的 `TypedDict` 只能**声明**固定的属性集。
 
 ```typescript
+// 单文件编译用：加空导出把本文件标成模块，避免与内置 `Partial` / `Readonly` 同名冲突
+export {};
+
 // 映射类型：一键生成变体
 interface User { name: string; age: number; email: string; }
 type Partial<T> = { [K in keyof T]?: T[K] };
@@ -411,13 +423,16 @@ const config2 = {
 **结论**：TS 装饰器只能用于 class 的方法/属性/参数，**不能装饰独立函数**；Python 装饰器可用于函数、方法、类、属性，能力更强。
 
 ```typescript
-// TS 装饰器：只能用于 class 成员
-function measure(target: any, key: string, desc: PropertyDescriptor) {
-  const original = desc.value;
-  desc.value = function (...args: any[]) {
-    console.time(key);
-    const result = original.apply(this, args);
-    console.timeEnd(key);
+// TS 5.0+ 标准（Stage 3）方法装饰器：签名是 (value, context)，不再是 legacy 的 (target, key, desc)
+function measure<This, Args extends unknown[], R>(
+  value: (this: This, ...args: Args) => R,
+  ctx: ClassMethodDecoratorContext<This, (this: This, ...args: Args) => R>
+) {
+  return function (this: This, ...args: Args): R {
+    const label = String(ctx.name);
+    console.time(label);
+    const result = value.apply(this, args);
+    console.timeEnd(label);
     return result;
   };
 }
@@ -425,6 +440,7 @@ class Service {
   @measure
   heavyWork() { return 42; }
 }
+// 注：legacy 签名 (target, key, desc: PropertyDescriptor) 需 tsconfig "experimentalDecorators": true，TS 5.x 默认配置下会报 TS1241
 
 // ❌ @logCalls function greet() {}  // 编译错误！不能装饰独立函数
 // ✅ 独立函数用高阶函数替代
@@ -506,7 +522,7 @@ app.post("/todos", validate(TodoSchema), handler);
 
 3. **`Array.sort()` 默认按字符串排序**：`[10, 2, 1].sort()` → `[1, 10, 2]`。数字排序必须传 `(a, b) => a - b`。
 
-4. **`for...in` 遍历键不是值**：`for (let k in obj)` 得到键，`for (let v of arr)` 得到值。和 Python 完全相反。
+4. **`for...in` 遍历键不是值**：`for (let k in obj)` 得到键，`for (let v of arr)` 得到值。**对数组**：Python 迭代值、TS 的 `for...in` 迭代下标；**对 dict/对象**：两者都迭代键（Python `for k in d` 也是键）——只有数组场景才是“反的”。
 
 5. **类型在运行时不存在**：不能用 `typeof` 做运行时类型判断（`typeof user === "User"` 永远不满足），用 Zod 等运行时校验库。
 
@@ -537,9 +553,11 @@ app.post("/todos", validate(TodoSchema), handler);
 
 | 层次 | 检查项 |
 |------|--------|
-| 🟢 基础 | 能清晰回答 Q1-Q6（类型系统基础对比） |
-| 🟡 进阶 | 能清晰回答 Q7-Q10（异步模型对比）和 Q11-Q14（TS 独有特性） |
-| 🔴 挑战 | 能完整回答 Q20（技术选型），能讲出 Q19 的 5 个坑并提供解决方案 |
+| 🟢 基础 | 从 Q1-Q6 随机抽 2 题，每题 90 秒内说出“结论 + 1 个代码层差异 + 1 个生产坑”；录音回放，三要素齐全且无超过 5 秒的卡顿 |
+| 🟢 基础 | 默写 Q2 的四行对照表（`any` / `unknown` / `never` / `void` ↔ Python），4/4 正确；`never ↔ NoReturn` 不能写错 |
+| 🟡 进阶 | 对 Q7-Q14 每题写 3 行提纲（结论/机制/坑），8 题里至少 6 题成立；其中 Q10 必须写明“主模块里 setTimeout(0) 与 setImmediate 先后不确定” |
+| 🟡 进阶 | 手写 Q13 的可辨识联合 + `never` 兵底，先跑通 `tsc`；再故意删掉一个 `case`，贴出 `error TS2322: Type 'string' is not assignable to type 'never'` |
+| 🔴 挑战 | 完成 Q20 的技术选型答辩：给一个“数据分析 + Web 后台”混合项目出架构建议（Python 做数据层 / TS 做应用层 / API 通信），并给出 2 条边界理由 |
 
 ---
 

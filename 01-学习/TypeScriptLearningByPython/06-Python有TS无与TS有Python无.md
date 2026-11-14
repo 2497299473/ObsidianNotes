@@ -131,7 +131,7 @@ assert db1 is db2  # 同一个实例
 
 ```typescript
 // ❌ TS 没有元类
-// ✅ 替代方案 1：单例模式
+// ✅ 替代方案 1：单例模式（私有构造 + getInstance）
 class Database {
   private static instance: Database;
   private constructor(public url: string) {}
@@ -140,8 +140,18 @@ class Database {
     return Database.instance;
   }
 }
+```
+
+```typescript
 // ✅ 替代方案 2：模块级单例（最简单）
-export const db = new Database("postgres://...");
+// 模块缓存本身就是单例，不需要 private 构造（上面那个私有构造的类不能在模块级 new）
+class ModuleDatabase {
+  constructor(public url: string) {}
+}
+export const db = new ModuleDatabase("postgres://...");
+```
+
+```typescript
 // ✅ 替代方案 3：装饰器（有限能力）
 function Singleton<T extends new (...args: any[]) => any>(target: T) {
   let instance: InstanceType<T>;
@@ -236,6 +246,8 @@ try { const data = await f.read(); }
 finally { await f.close(); }
 
 // ✅ TS 5.2+ using 声明（接近 Python with）
+// ⚠️ 需 lib 含 ESNext.Disposable（例："lib": ["ES2022", "ESNext.Disposable"] 或 ["ESNext"]），
+//    否则 Disposable / Symbol.dispose 不存在（TS2318/TS2304）
 class FileHandle implements Disposable {
   constructor(private path: string) {}
   read(): string { return "file content"; }
@@ -349,8 +361,11 @@ requests.get = patched_get  # 运行时替换！
 ```
 
 ```typescript
-// ❌ TS 无法安全地运行时替换
+// ⚠️ 运行时替换可行（就是猴子补丁），但会绕过类型检查，必须先扩接口声明
 // ✅ 替代方案 1：扩展接口（类型安全）
+// 单文件编译用：加空导出把本文件标成模块，`declare global` 才能生效（否则 TS2669）
+export {};
+
 declare global {
   interface Array<T> { customSort(): T[]; }
 }
@@ -529,6 +544,9 @@ type StringProps<T> = {
 ### 5. 模板字面量类型
 
 ```typescript
+// 单文件编译用：加空导出把本文件标成模块，避免与 DOM 内置 `CSSRule` 同名冲突
+export {};
+
 // ★ 类型级别的字符串拼接
 type EventName = `on${Capitalize<string>}`;
 const click: EventName = "onClick";  // ✅
@@ -651,7 +669,9 @@ type City = User["address"]["city"];      // string
 
 ```typescript
 // 几乎每个 npm 包都有 @types/ 声明
-import type { User } from "./types.d.ts";
+// 路径写 "./types" 而不是 "./types.d.ts"：声明文件不能用值导入（会报 TS2846），
+// import type 虽能解析 .d.ts 后缀，但省后缀才是惯例（打包器/运行时也认不出 .d.ts）
+import type { User } from "./types";
 // 为没有类型的 JS 库添加类型
 declare module "legacy-lib" {
   export function doSomething(input: string): number;
@@ -710,13 +730,14 @@ const name = user.name ?? "Anonymous";   // 空值合并（只对 null/undefined
 
 ## 常见易错点
 
-> [!warning] **坑 1：Python 的 `or` ≠ TS 的 `||`**
+> [!warning] **坑 1：Python 的 `or` = TS 的 `||`，但都不等于 `??`**
 > ```python
-> # 0 or "default" → "default"（0 是 falsy）
+> # 0 or "default" → "default"（0 是 falsy，返回第一个 truthy 操作数）
 > ```
 > ```typescript
-> // 0 || "default" → "default"（0 也是 falsy）
-> // ✅ 用 ?? 替代：0 ?? "default" → 0（保留 0！）
+> // 0 || "default" → "default"（与 Python or 行为相同）
+> // ✅ 用 ?? 替代：0 ?? "default" → 0（只判 null/undefined，保留 0！）
+> // Python 没有 ?? 的等价物，最接近的是 x if x is not None else y
 > ```
 
 > [!warning] **坑 2：Python 的 `==` ≠ TS 的 `==`**
