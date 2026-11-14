@@ -268,13 +268,13 @@ Rust 语言刻意不内建运行时（对比 Go 自带调度器），异步生�
 
 ---
 
-## 🎯 本课自检
+## 🎯 本文学完自检
 
-| 层次 | 检查项 | 是否通过 |
-|------|--------|----------|
-| 🟢 基础 | 能解释 Future/poll 模型，写出 tokio::main + spawn 的最小示例 | [ ] |
-| 🟡 进阶 | 能跑通 axum 的 /tasks 服务并说明 serde 的作用 | [ ] |
-| 🔴 挑战 | 能说明跨 await 持 std Mutex 的两个具体问题，并用 tokio Mutex 写出正确版本 | [ ] |
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | `#[tokio::main]` + `tokio::join!` 并发两个 `sleep`（100ms / 150ms），在程序里用 `Instant` 计时，耗时 ≈150ms 而不是 250ms |
+| 🟡 进阶 | 在 `tokio::spawn` 的任务里持 `std::sync::Mutex` 跨 `.await`，复现 `E0277`（future cannot be sent，`MutexGuard` 不是 `Send`）；换 `tokio::sync::Mutex` 后通过 |
+| 🔴 挑战 | 起 axum 服务后 `GET /tasks` 拿到 JSON 数组；`spawn_blocking` 统计 `(0..1_000_000)` 内 7 的倍数输出 `142858`；能说出「等 IO → async、CPU 密集 → spawn_blocking/rayon」的分界 |
 
 ---
 

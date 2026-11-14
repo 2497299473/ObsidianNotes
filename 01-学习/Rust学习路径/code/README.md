@@ -26,7 +26,7 @@ lark_doc_url: https://my.feishu.cn/docx/U0oTdhlahofB0zxJu7ycd4gxn0d
 
 ```bash
 cd v1
-rustc main.rs            # edition 2021
+rustc --edition 2021 main.rs   # 不写 --edition 时默认 2015，本例也能过，但建议显式指定
 ./main add 买牛奶 done 1 list   # Windows 下为 main.exe
 ```
 

@@ -15,7 +15,8 @@
 //!
 //! 运行：
 //!   cargo run -- --backend=file add 买牛奶
-//!   cargo run -- --backend=memory add 临时任务 list
+//!   cargo run -- --backend=memory add 临时任务
+//!   （v3 起改为单命令模式：数据已持久化，无需串联多命令；add 会拿走全部剩余参数作标题）
 //!
 //! 另一种写法（静态分发）：用泛型注入 `struct App<S: Storage> { storage: S, tasks: Vec<Task> }`。
 //! 泛型会单态化、性能更好，但每种实现生成一份代码且无法运行时选择；

@@ -215,13 +215,13 @@ fn main() {
 
 ---
 
-## 🎯 本课自检
+## 🎯 本文学完自检
 
-| 层次 | 检查项 | 是否通过 |
-|------|--------|----------|
-| 🟢 基础 | `rustc --version` 与 `cargo --version` 均有输出，`cargo run` 能打印 Hello, world! | [ ] |
-| 🟡 进阶 | 能说清 stable/beta/nightly 的区别，能解释 `cargo check` 为何比 `cargo build` 快 | [ ] |
-| 🔴 挑战 | 成功添加 rand 依赖并运行练习 2 的程序，能解释 `Cargo.lock` 的作用 | [ ] |
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | `cargo new hello_world` → `cd hello_world` → `cargo run` 打印 `Hello, world!`；`rustc --version` 与 `cargo --version` 都有版本号输出 |
+| 🟡 进阶 | 在 `Cargo.toml` 加 `rand = "0.8"`，写 `rand::thread_rng().gen_range(1..=100)` 连跑 3 次：结果都落在 1..=100 且不全相同，项目根出现 `Cargo.lock` |
+| 🔴 挑战 | 分别跑 `cargo check` / `cargo build` / `cargo build --release`：指出哪个不产可执行文件、debug 与 release 产物各在 `target/` 的哪个子目录，并说出 `Cargo.lock` 锁的是精确版本而不是 `0.8` 这个区间 |
 
 ---
 

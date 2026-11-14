@@ -13,6 +13,10 @@
 //!   1. Task 序列化/反序列化为 JSON，保存到 tasks.json，启动时加载
 //!   2. 自定义 AppError 统一错误类型 + From 实现 + ? 传播
 //!   3. main 返回 Result<(), AppError>，不再靠 panic / process::exit 处理错误
+//!      （注意：出错时运行时以 Debug 形式打印 `Error: NotFound(99)`；
+//!       生产版应先 match 再打印 Display 并 exit(1)，见 02-错误处理的同名陷阱）
+//!   4. tasks.json 用相对路径，数据落在【当前工作目录】而非可执行文件旁；
+//!      换目录运行会读不到原文件（表现为「（暂无任务）」），且不会报错
 //!
 //! 运行：
 //!   cargo run -- add 买牛奶
@@ -24,7 +28,7 @@ use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
-/// 数据文件（与运行时工作目录同级）
+/// 数据文件：相对路径，落在**当前工作目录**（换目录运行会读不到原文件，也不报错）
 const DB_FILE: &str = "tasks.json";
 
 #[derive(Debug, Serialize, Deserialize)]

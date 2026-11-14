@@ -321,14 +321,13 @@ fn demo() {
 
 ---
 
-## 🎯 本课自检
+## 🎯 本文学完自检
 
-| 层次 | 检查项 | 是否通过 |
-|------|--------|----------|
-| 🟢 基础 | 能写出泛型函数与 `Point<T>`，并解释单态化 | [ ] |
-| 🟢 基础 | 能定义 trait、提供默认实现并为自己的类型实现 | [ ] |
-| 🟡 进阶 | 会用 `T: A + B`、`where` 子句和 `derive` 组合约束 | [ ] |
-| 🔴 挑战 | 能说明静态/动态分发的机制差异，并判断一个 trait 是否对象安全 | [ ] |
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 实现 `largest<T: PartialOrd>(&[T]) -> &T` 与 `#[derive(Debug)] struct Point<T>`，跑出 `largest = 100` 与 `Point { x: 5, y: 10 }` |
+| 🟡 进阶 | 给 `Task` / `Report` 各实现 `Printable`，装进 `Vec<Box<dyn Printable>>` 遍历 `render()` 打印两行；`impl Summary for Report {}` 空实现也能编译（默认实现生效） |
+| 🔴 挑战 | 写一个返回 `Self` 的 trait 方法后试图放进 `Box<dyn Trait>`，复现 `E0038`（not dyn compatible）；加 `where Self: Sized` 后通过，并说出两条对象安全限制（不能返回 `Self`、不能带泛型参数） |
 
 ---
 

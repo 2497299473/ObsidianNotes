@@ -62,7 +62,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 ```
 
-关键代码：
+关键代码（**片段**：假设 `Task`/`AppError`/`TaskStore` 已定义，完整可运行版见 `code/v4/main.rs`）：
 
 ```rust
 /// 存储抽象：TaskStore 不关心"数据存在哪"，只通过这个 trait 交互
@@ -98,13 +98,13 @@ fn main() -> Result<(), AppError> {
 
 ---
 
-## 🎯 本版自检
+## 🎯 本文学完自检
 
-| 层次 | 检查项 | 是否通过 |
-|------|--------|----------|
-| 🟢 基础 | 能按步骤跑通本版本代码 | [ ] |
-| 🟡 进阶 | 能解释本版本涉及的核心原理 | [ ] |
-| 🔴 挑战 | 能独立扩展一个功能点 | [ ] |
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | `--backend=memory` 与 `--backend=file` 分别打印 `[info] 使用 memory 后端` / `[info] 使用 file 后端` |
+| 🟡 进阶 | file 后端写入后切 `--backend=memory`，读不到那条数据（后端隔离生效） |
+| 🔴 挑战 | 传 `--backend=redis` 得到「未知后端: redis（可选 file / memory）」且退出码 1；能说出「业务层不动、只换 Storage 实现」的意义 |
 
 ---
 

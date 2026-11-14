@@ -64,7 +64,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 ```
 
-关键代码：
+关键代码（**片段**：假设 `Task`/`TaskStore`/`patch_task`/`CreateTaskInput` 已定义，完整可运行版见 `code/v7/main.rs`；需补 `use std::sync::Arc;` 等）：
 
 ```rust
 use axum::{
@@ -112,13 +112,13 @@ async fn main() {
 
 ---
 
-## 🎯 本版自检
+## 🎯 本文学完自检
 
-| 层次 | 检查项 | 是否通过 |
-|------|--------|----------|
-| 🟢 基础 | 能按步骤跑通本版本代码 | [ ] |
-| 🟡 进阶 | 能解释本版本涉及的核心原理 | [ ] |
-| 🔴 挑战 | 能独立扩展一个功能点 | [ ] |
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | `cargo run` 打印「任务管理器 API 已启动：http://127.0.0.1:3000」；`curl http://127.0.0.1:3000/tasks` 返回含 1 条预置任务的 JSON 数组 |
+| 🟡 进阶 | `POST /tasks`（body `{"title":"买牛奶"}`）返回 201，再 `GET` 看到 id=2、done=false |
+| 🔴 挑战 | `PATCH /tasks/999` 返回 404；`PATCH /tasks/1`（body `{"done":true}`）后再 `GET` 看到该任务 `done=true` |
 
 ---
 

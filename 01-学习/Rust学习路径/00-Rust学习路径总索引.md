@@ -17,7 +17,7 @@ lark_doc_url: https://my.feishu.cn/docx/QH08dAP6XotOaDxDKH9clpl9nSe
 > [!info] 版本基线
 > Rust 1.75+ / edition 2021（自 Rust 1.85 起 `cargo new` 默认生成 edition 2024，其新特性本路径未覆盖）。依赖版本以各篇标注为准：`rand = "0.8"`（0.9 改名 `gen_range`→`random_range`、`thread_rng`→`rng`）；`axum = "0.7"`（0.8 的路径参数从 `:id` 改为 `{id}`，v7 有差异说明）。panic 策略在 Cargo.toml `[profile.release] panic = "abort"` 中配置（编译期设置），不存在 `RUST_PANIC` 环境变量。
 >
-> **🔄 2026-09 版本口径**：stable 已至 1.98+（2026-08，以 [blog.rust-lang.org](https://blog.rust-lang.org/) 为准）；官方教材《The Rust Programming Language》已切换到 edition 2024 基线。本路径代码不依赖 1.75 之后的语言特性，edition 2021（或新版 toolchain 下的 2024 edition）均可编译运行；edition 2024 的差异（let-chains 等语法放宽、RPIT 变化）后续以"版本迁移知识"专题补充，不回改正文。
+> **🔄 2026-11 版本口径**：stable 1.100（2026-11 实测，版本号只增不减，以 [blog.rust-lang.org](https://blog.rust-lang.org/) 为准）；官方教材《The Rust Programming Language》已切换到 edition 2024 基线。本路径代码不依赖 1.75 之后的语言特性，edition 2021（或新版 toolchain 下的 2024 edition）均可编译运行；edition 2024 的差异（let-chains 等语法放宽、RPIT 变化）后续以"版本迁移知识"专题补充，不回改正文。
 
 ---
 
