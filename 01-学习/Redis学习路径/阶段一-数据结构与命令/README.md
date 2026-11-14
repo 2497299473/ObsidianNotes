@@ -58,9 +58,21 @@ flowchart TD
 
 | 代码 | 对应笔记 | 状态 |
 |------|---------|------|
-| `code/01-string/` | 01 | ✅ 已有 |
-| `../code/02-data-structures/` | 02 | 待补充 |
-| `../code/03-pubsub/` | 03 | 待补充 |
+| `code/01-string/` | 01 | ✅ 已有（`python code/01-string/string_demo.py`） |
+| `../code/02-data-structures/` | 02 | ✅ 已有（`python code/02-data-structures/demo.py`） |
+| `../code/03-pubsub/` | 03 | ✅ 已有（`python code/03-pubsub/demo.py`） |
+
+---
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 三篇各自的 🟢 项全部跑通：`SET/GET`、`HSET`+`OBJECT ENCODING`、`SUBSCRIBE`/`PUBLISH` 各能给出命令与预期输出 |
+| 🟡 进阶 | 本机 6379 跑着 Redis 的前提下，连跑 `python code/01-string/string_demo.py`、`code/02-data-structures/demo.py`、`code/03-pubsub/demo.py`，三个脚本均无异常退出且打印各自的业务结果行 |
+| 🔴 挑战 | 不看笔记，把「排行榜 / 购物车 / 共同好友 / 最新 10 条动态 / 7 天不重复签到」5 个场景各映射成结构 + 关键命令 + 1 个坑，再与 02 篇的对比表逐格核对，改掉自己写错的地方 |
+
+---
 
 ## 🔗 导航
 

@@ -69,8 +69,9 @@ DEL user:1:name              # 删除
 
 ### 带条件的设置（缓存防击穿必备）
 ```redis
-SETNX lock:order:100 "owner1"    # 不存在才设置 → 1（成功）/ 0（失败）
+SET lock:order:100 "owner1" NX   # 不存在才设置 → OK（成功）/ (nil)（已存在）
 SETEX token:abc 3600 "user1"      # 带过期设置（秒）
+SETNX lock:order:100 "owner1"    # ⚠️ 历史写法：自 2.6.12 起 deprecated，等价于 SET ... NX
 ```
 
 ### 计数器（原子操作）
@@ -90,7 +91,8 @@ MGET k1 k2 k3                   # 一次返回多值
 
 ### 旧值返回设置
 ```redis
-GETSET k1 "newv"               # 返回旧值，同时设置新值
+SET k1 "newv" GET              # 返回旧值，同时设置新值（6.2+ 推荐）
+GETSET k1 "newv"               # ⚠️ 历史写法：自 6.2 起 deprecated，等价于 SET ... GET
 ```
 
 ---
@@ -118,7 +120,7 @@ TYPE user:1:name                # 数据类型
 | 场景 | 命令组合 |
 |------|---------|
 | 缓存对象 | `SET` + `EXPIRE` 或 `SETEX` |
-| 分布式锁（单机） | `SETNX` + `EXPIRE`（原子性问题→用 `SET key val NX EX 30`） |
+| 分布式锁（单机） | `SET key val NX EX 30`（`SETNX`+`EXPIRE` 两步非原子，且 `SETNX` 已 deprecated） |
 | 计数器/排行榜分数 | `INCR` / `INCRBY` |
 | 限流（固定窗口） | `INCR` + `EXPIRE` 1 秒，判 ≥N |
 | Session 存储 | `SETEX session:<id> 1800 <payload>` |
@@ -136,22 +138,22 @@ TYPE user:1:name                # 数据类型
 
 ---
 
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | `redis-cli ping` 返回 `PONG`；`SET user:1:name alice` → `GET` 返回 `alice`、`TYPE` 返回 `string`、`DEL` 后 `EXISTS` 返回 `0` |
+| 🟡 进阶 | 连发两次 `SET lock:o1 t1 NX EX 30`：第一次 `OK`、第二次 `(nil)`，且 `TTL lock:o1` 落在 25–30；把 `PERSIST` 后 `TTL` 返回 `-1`；一句话说清 `SETNX`+`EXPIRE` 的两步窗口为何会漏锁 |
+| 🔴 挑战 | 用 `INCR` + `EXPIRE` 写固定窗口限流（10 QPS）：① 先 `redis-cli DEL rl:u1` 归零（否则计数只增不减，第二次跑永远 >10）；② 用一行 Lua 保证「自增 + 首次置过期」原子：`redis-cli EVAL "local c=redis.call('INCR',KEYS[1]) if c==1 then redis.call('EXPIRE',KEYS[1],1) end return c" 1 rl:u1`（★ 只在第一次 `INCR` 时设 `EXPIRE`：计数器刚创建才开 1s 窗口，之后自增不续期；两步写法 `c=$(redis-cli INCR rl:u1); [ "$c" = 1 ] && redis-cli EXPIRE rl:u1 1` 有中间窗口、不原子，仅作对照）。判据：连发 12 次（`seq 1 12 \| xargs -P12 -I{}` 包住上面的 EVAL），返回 1–10 的 10 次放行、11–12 的 2 次拒绝；并说明固定窗口在跨秒边界会瞬时放过约 2 倍流量 |
+
+---
+
 ## 🔗 相关笔记
 
 - ⬅️ 前置：[[../00-Redis学习路径总索引]]
 - ➡️ 后续：[[02-五大基础数据结构]]
 - 🔗 关联：[[阶段一-数据结构与命令/02-五大基础数据结构]]（深度补充）
 - 🔗 关联：[[../../../03-AI工具/AI协作方法论/技术学习路径审查与优化方法论]]
-
----
-
-## 🎯 本文学完自检
-
-| 层次 | 检查项 |
-|------|--------|
-| 🟢 基础 | 能用 `SET/GET/DEL` 完成键值读写，用 `redis-cli ping` 验证连接 |
-| 🟡 进阶 | 能用 `INCR` 实现计数器，并用 `SET ... NX EX` 实现单机分布式锁，解释为何 `SETNX` + `EXPIRE` 非原子 |
-| 🔴 挑战 | 能用 `EXPIRE` + `TTL` 实现固定窗口限流，并解释惰性删除与定期删除的协作机制 |
 
 ---
 

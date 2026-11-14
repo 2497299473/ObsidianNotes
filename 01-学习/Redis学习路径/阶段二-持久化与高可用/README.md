@@ -56,9 +56,21 @@ flowchart LR
 
 | 代码 | 对应笔记 | 状态 |
 |------|---------|------|
-| `../code/04-persistence/` | 01 | 待补充 |
-| `../code/05-replication/` | 02 | 待补充 |
-| `../code/06-cluster/` | 03 | 待补充 |
+| `../code/04-persistence/` | 01 | ✅ 已有（`redis.conf` + `run.sh`） |
+| `../code/05-replication/` | 02 | ✅ 已有（`replica.conf` + `sentinel.conf` + `run.sh`） |
+| `../code/06-cluster/` | 03 | ✅ 已有（`redis-7000.conf` + `run.sh`） |
+
+---
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 在 `code/04-persistence/` 下 `bash run.sh`：输出里 `aof_enabled:1`，重启后 `String: hello-world` 与 `ZSet: alice 100` 均被恢复 |
+| 🟡 进阶 | 在 `code/05-replication/` 下 `bash run.sh`：主 `INFO replication` 的 `connected_slaves:2`，`redis-cli -p 26379 SENTINEL masters` 能列出 `mymaster`；`SHUTDOWN` 主库后日志只到 `+sdown`（单哨兵不切，解释为何） |
+| 🔴 挑战 | 在 `code/06-cluster/` 下 `bash run.sh`：`CLUSTER INFO` 为 `cluster_state:ok` / `16384`，`CLUSTER NODES` 3 主 3 从，`MSET {u1}:a 1 {u1}:b 2` 成功；再解释 `dir ./data/7000` 若缺省会导致什么（提示：`dump.rdb`/`appendonlydir` 同名互盖） |
+
+---
 
 ## 🔗 导航
 

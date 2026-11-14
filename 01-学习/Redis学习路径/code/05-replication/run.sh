@@ -16,6 +16,7 @@ sleep 1
 redis-cli -p 26379 SENTINEL masters
 echo "=== 模拟故障转移 ==="
 echo "手动停止主节点: redis-cli -p 6379 SHUTDOWN"
-echo "哨兵将在 5 秒后自动切换"
+echo "单哨兵约 5 秒后标记 SDOWN（主观下线）；注意：单哨兵无法完成故障转移，"
+echo "要观察自动切换请起 3 个哨兵（quorum 2），见笔记 02-主从复制与哨兵"
 echo "=== 清理 ==="
 echo "redis-cli -p 6380 SHUTDOWN; redis-cli -p 6381 SHUTDOWN; redis-cli -p 26379 SHUTDOWN"

@@ -86,19 +86,13 @@ assert r.zscore("rank:game", "alice") == 100.0
 
 ---
 
-## ✅ 自检清单
+## 🎯 本文学完自检
 
-### 🟢 基础
-- [ ] AOF 持久化配置正确
-- [ ] 重启后数据恢复
-
-### 🟡 进阶
-- [ ] 理解 `appendfsync everysec`
-- [ ] 能执行 BGREWRITEAOF
-
-### 🔴 挑战
-- [ ] 能设计备份与恢复演练流程
-- [ ] 能对比 RDB/AOF/混合持久化的 RPO
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | `SET test:persist hello-world` → `redis-cli SHUTDOWN`（非 NOSAVE）→ 重启 → `GET test:persist` 仍为 `hello-world`，`INFO persistence` 中 `loading:0`、`aof_enabled:1` |
+| 🟡 进阶 | `ls appendonlydir/` 能同时看到 `*.base.rdb`、`*.incr.aof`、`*.manifest`；`BGREWRITEAOF` 后 base 文件编号递增且 mtime 更新，`INFO persistence` 的 `aof_rewrite_in_progress:0` |
+| 🔴 挑战 | 把最后写入的 `.incr.aof` 尾部截掉半条命令 → 重启报错 → `redis-check-aof --fix <该文件>` 后能启动；记录“丢了哪一条写”（前后 `GET` 对比），并用 2 行说清为何只靠 RDB 做不到这个粒度 |
 
 ---
 

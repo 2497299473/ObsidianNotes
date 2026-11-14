@@ -5,6 +5,7 @@ set -e
 CONF_DIR="."
 echo "=== 启动 6 个节点 ==="
 for port in 7000 7001 7002 7003 7004 7005; do
+  mkdir -p "$CONF_DIR/data/$port"
   sed "s/7000/$port/g" "$CONF_DIR/redis-7000.conf" > "$CONF_DIR/redis-$port.conf"
   redis-server "$CONF_DIR/redis-$port.conf"
 done

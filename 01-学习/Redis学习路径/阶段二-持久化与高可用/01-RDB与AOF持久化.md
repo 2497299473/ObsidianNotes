@@ -55,7 +55,7 @@ AOF = 将每条写命令追加到日志文件。
 | 特性 | 说明 |
 |------|------|
 | 触发方式 | 每条写命令自动追加 |
-| 文件 | `appendonly.aof` |
+| 文件 | `appendonlydir/`（7.0+ 多部分：base + incr + manifest） |
 | 优点 | 数据丢失少（最多1秒） |
 | 缺点 | 文件大、恢复慢 |
 
@@ -99,6 +99,8 @@ Redis 启动 → 检查 AOF 文件
   └── 无 AOF → 检查 RDB → 用 RDB 恢复
 ```
 
+> 🔧 **AOF 尾部损坏**：断电/磁盘满会在 AOF 末尾留下半条命令，启动报 `Bad file format reading the append only file`。用 `redis-check-aof --fix <aof 文件>` 截掉不完整的尾部（7.0+ 先确认 `appendonlydir/` 里最后写入的那个 `.incr.aof`）。
+
 ### 对比总结
 
 | 维度 | RDB | AOF | 混合 |
@@ -124,8 +126,16 @@ redis-cli CONFIG SET appendonly yes
 redis-cli CONFIG SET appendfsync everysec
 redis-cli CONFIG SET aof-use-rdb-preamble yes
 
-# 写入测试数据
-for i in $(seq 1 1000); do redis-cli SET "key:$i" "value:$i"; done
+# 写入测试数据（单连接 Pipeline：1000 次 redis-cli 会起 1000 个进程，慢且噪声大）
+python3 - <<'PY'
+import redis
+r = redis.Redis(decode_responses=True)
+p = r.pipeline(transaction=False)
+for i in range(1, 1001):
+    p.set(f"key:{i}", f"value:{i}")
+p.execute()   # 一次网络往返提交 1000 条
+print("写入 1000 条完成")
+PY
 
 # 触发 RDB 快照
 redis-cli BGSAVE
@@ -146,9 +156,11 @@ redis-cli SET "test:data" "hello"
 # 2. 关闭 Redis
 redis-cli SHUTDOWN NOSAVE
 
-# 3. 确认持久化文件
+# 3. 确认持久化文件（7.0+ AOF 是多部分，在 appendonlydir/ 目录内）
 ls -la /var/lib/redis/
-# dump.rdb  appendonly.aof
+# dump.rdb  appendonlydir/
+ls -la /var/lib/redis/appendonlydir/
+# appendonly.aof.1.base.rdb  appendonly.aof.1.incr.aof  appendonly.aof.manifest
 
 # 4. 重启 Redis（自动加载持久化文件）
 redis-server /etc/redis/redis.conf
@@ -171,6 +183,16 @@ redis-cli GET "test:data"  # hello
 
 ---
 
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | `CONFIG SET appendonly yes` → `INFO persistence` 出现 `aof_enabled:1`；`ls appendonlydir/` 看到 `appendonly.aof.1.base.rdb`、`appendonly.aof.1.incr.aof`、`appendonly.aof.manifest` 三件套（而不是单个 `appendonly.aof`） |
+| 🟡 进阶 | `SET k v` → `SHUTDOWN NOSAVE` → 重启 → `GET k` 仍有值；`BGREWRITEAOF` 后 `appendonlydir/` 里 base 文件 mtime 更新、编号递增，`INFO persistence` 的 `aof_rewrite_in_progress:0` |
+| 🔴 挑战 | 手工往 `.incr.aof` 末尾追加半条命令 → 重启报错 → `redis-check-aof --fix <该文件>` 修复后重启成功，并记录“哪一条写被截掉了”（对比修复前后 `GET` 结果） |
+
+---
+
 ## 🔗 相关笔记
 
 - [[../阶段一-数据结构与命令/03-Pub-Sub与Stream消息]] — 前置
@@ -178,30 +200,6 @@ redis-cli GET "test:data"  # hello
 - [[01-学习/Redis学习路径/阶段二-持久化与高可用/99-阶段2复习检查点|99-阶段2复习检查点]] — 阶段验收
 - [[../00-Redis学习路径总索引]] — 返回总索引
 - [[阶段二-持久化与高可用/01-RDB与AOF持久化]] — 既有深度参考
-
----
-
-## ✅ 自检清单
-
-### 🟢 基础（必须掌握）
-
-- [ ] 能解释 RDB 和 AOF 的原理与区别
-- [ ] 能配置 AOF 的三种刷盘策略
-- [ ] 能用 `BGSAVE` 和 `BGREWRITEAOF` 手动触发
-- [ ] 能用 `INFO persistence` 查看持久化状态
-
-### 🟡 进阶（综合运用）
-
-- [ ] 能配置混合持久化并解释其优势
-- [ ] 能设计备份与恢复演练流程
-- [ ] 能根据 RPO 选择合适的持久化策略
-- [ ] 能排查 AOF 文件损坏问题
-
-### 🔴 挑战（独立判断）
-
-- [ ] 能设计 Redis 数据备份与灾难恢复方案
-- [ ] 能分析 fork 对内存的影响并给出优化建议
-- [ ] 能对比 Redis 持久化与 MySQL binlog 的异同
 
 ---
 

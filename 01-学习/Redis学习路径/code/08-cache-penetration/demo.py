@@ -23,19 +23,28 @@ def get_with_null_cache(key):
 def query_db(key):
     return {"id": 1, "name": "alice"} if "existing" in key else None
 
-# ===== 2. 缓存击穿：互斥锁 =====
+# ===== 2. 缓存击穿：互斥锁（带 owner token，复用下方 RELEASE_SCRIPT）=====
+import uuid
+RELEASE_SCRIPT = """
+if redis.call("GET", KEYS[1]) == ARGV[1] then
+    return redis.call("DEL", KEYS[1])
+else
+    return 0
+end
+"""
 def get_with_mutex(key):
     cached = r.get(key)
     if cached:
         return cached
     lock_key = f"lock:{key}"
-    if r.set(lock_key, "1", nx=True, ex=5):
+    token = str(uuid.uuid4())
+    if r.set(lock_key, token, nx=True, ex=5):
         try:
             value = f"data-{random.randint(1, 100)}"
             r.setex(key, 60, value)
             return value
         finally:
-            r.delete(lock_key)
+            r.eval(RELEASE_SCRIPT, 1, lock_key, token)  # 比对 token 再删，避免误删他人锁
     else:
         time.sleep(0.1)
         return r.get(key)
@@ -46,15 +55,10 @@ print("穿透测试（存在的key）:", get_with_null_cache("existing:1"))
 print("击穿测试:", get_with_mutex("hotkey:1"))
 
 # ===== 3. 分布式锁 =====
-RELEASE_SCRIPT = """
-if redis.call("GET", KEYS[1]) == ARGV[1] then
-    return redis.call("DEL", KEYS[1])
-else
-    return 0
-end
-"""
 lock_ok = r.set("lock:order:100", "owner-token", nx=True, ex=30)
 print("分布式锁:", "成功" if lock_ok else "失败")
+if lock_ok:
+    r.eval(RELEASE_SCRIPT, 1, "lock:order:100", "owner-token")  # 安全释放
 
 # 清理
 r.delete("lock:order:100", "hotkey:1", "nonexistent:key", "existing:1")

@@ -17,7 +17,7 @@ lark_doc_url: https://my.feishu.cn/docx/CbbedcIaQoXklOxewRuc6t1Mnnh
 > 📚 **深度阅读入口**（对应旧"Redis 专题笔记"的主题）：[[阶段一-数据结构与命令/02-五大基础数据结构|基础数据结构]]、[[阶段二-持久化与高可用/01-RDB与AOF持久化|持久化]]、[[阶段二-持久化与高可用/02-主从复制与哨兵|高可用/哨兵]]、[[阶段二-持久化与高可用/03-Cluster分片集群|Cluster]]、[[阶段一-数据结构与命令/03-Pub-Sub与Stream消息|Stream 消息]]、[[阶段三-高级特性与性能优化/02-内存管理与性能调优|性能优化]]、[[阶段三-高级特性与性能优化/03-缓存三大问题与分布式锁|缓存实战/分布式锁]]。
 
 > [!info] 版本基线
-> Redis 7.2+：Hash/ZSet 小数据编码为 **listpack**（非 ziplist），List 自 3.2 起始终为 quicklist，配置名为 `*-max-listpack-*`（旧 `*-max-ziplist-*` 作为别名仍生效）；Set 自 7.2 起还有 listpack 编码。哨兵的 quorum（判定客观下线所需票数）与 majority（Leader 选举授权）是两个独立概念。Cluster 共 16384 个槽。
+> Redis 7.2+：Hash/ZSet 小数据编码为 **listpack**（非 ziplist），List 自 3.2 起为 quicklist（7.0 起小 list 直接以 listpack 编码），配置名为 `*-max-listpack-*`（旧 `*-max-ziplist-*` 作为别名仍生效）；Set 自 7.2 起还有 listpack 编码。哨兵的 quorum（判定客观下线所需票数）与 majority（Leader 选举授权）是两个独立概念。Cluster 共 16384 个槽。
 >
 > **🔄 2026-09 版本差异**：Redis Open Source 已进入 **8.x** 系列（8.0 于 2025-05 发布）：查询引擎（原 Search/JSON 等模块）并入核心、新增许可证（AGPLv3 选项），并陆续引入面向 AI 的向量检索能力（Vector Sets）——对量化/语义缓存场景可直接用 Redis 做向量相似度检索。本路径全部命令与概念在 8.x 下向后兼容，无需改写；"Redis 7→8 新特性"专题后续按需补充。
 

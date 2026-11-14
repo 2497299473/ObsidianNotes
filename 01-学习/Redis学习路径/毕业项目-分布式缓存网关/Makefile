@@ -18,12 +18,11 @@ help: ## 显示帮助
 	@echo "  v7  监控与压测调优"
 
 v1: ## v1: 单机缓存服务
-	python app.py &
-	sleep 2
-	curl -X PUT http://localhost:5000/cache/test -H "Content-Type: application/json" -d '{"value":"ok"}'
-	curl -sf http://localhost:5000/cache/test | grep -q "ok"
-	curl -X DELETE http://localhost:5000/cache/test
-	kill %1
+	@python app.py & PID=$$!; sleep 2; \
+	curl -X PUT http://localhost:5000/cache/test -H "Content-Type: application/json" -d '{"value":"ok"}'; \
+	curl -sf http://localhost:5000/cache/test | grep -q "ok"; \
+	curl -X DELETE http://localhost:5000/cache/test; \
+	kill $$PID
 	@echo "✅ v1 验收通过"
 
 v2: ## v2: 多数据结构组合

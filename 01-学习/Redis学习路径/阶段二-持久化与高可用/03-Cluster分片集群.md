@@ -89,11 +89,12 @@ redis-cli -p 7000 CLUSTER KEYSLOT mykey
 ```bash
 # 普通模式：key 不在当前节点会报 MOVED
 redis-cli -p 7000 SET mykey hello
-# (error) MOVED 5798 127.0.0.1:7001
+# (error) MOVED 14687 127.0.0.1:7002
+# 槽号可用 CLUSTER KEYSLOT mykey 复核（→ 14687，落在 10923-16383 区间即 7002）
 
 # 集群模式（自动重定向）
 redis-cli -c -p 7000 SET mykey hello
-# OK（自动跳到 7001）
+# OK（自动跳到 7002）
 
 # 多 key 操作需要同一槽
 redis-cli -c -p 7000 MSET key1 v1 key2 v2
@@ -103,6 +104,17 @@ redis-cli -c -p 7000 MSET key1 v1 key2 v2
 redis-cli -c -p 7000 MSET {user:1}:name alice {user:1}:age 30
 # OK（{user:1} 决定槽位）
 ```
+
+### 迁移中的重定向：MOVED vs ASK
+
+扩容/缩容时槽处于“迁移中”，客户端可能连续收到两种重定向，含义完全不同：
+
+| 响应 | 含义 | 客户端应做 |
+|------|------|-----------|
+| `-MOVED <slot> <host:port>` | 该槽已**永久**归属另一节点 | 更新本地槽→节点映射，后续直接发往新节点 |
+| `-ASK <slot> <host:port>` | 该 key 已迁走，但**槽还没迁完** | **一次性**转向该节点，且必须先发 `ASKING`（只对紧随的那一条命令生效），否则被 `-MOVED` 打回 |
+
+> `redis-cli -c` 和 redis-py/Jedis 等客户端库会自动处理 MOVED 与 ASK（含补发 `ASKING`），所以你只看得到 `OK`；自己写 RESP 客户端时必须手动补这一步。反差验证：迁槽前后各发一次同一 key，先得 `ASK`、槽迁完后得 `MOVED`。
 
 ### 扩容
 
@@ -178,6 +190,16 @@ with rc.pipeline() as p:
 
 ---
 
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | `redis-cli --cluster create 127.0.0.1:7000 … :7005 --cluster-replicas 1` 后，`CLUSTER INFO` 显示 `cluster_state:ok` 与 `cluster_slots_assigned:16384`；`CLUSTER NODES` 里 3 个 `master` + 3 个 `slave` |
+| 🟡 进阶 | `CLUSTER KEYSLOT mykey` → **14687**；`redis-cli -p 7000 SET mykey v` 得 `(error) MOVED 14687 127.0.0.1:7002`；`MSET {u1}:a 1 {u1}:b 2` 成功，而 `MSET u1:a u2:b` 报 `CROSSSLOT Keys in request don't hash to the same slot` |
+| 🔴 挑战 | 手工 `CLUSTER SETSLOT <slot> IMPORTING/MIGRATING` + `MIGRATE` 迁 1 个槽，迁移中访问命中该槽的 key，拓下一条 `ASK` 并补发 `ASKING` 使其成功，用 2 行写清 ASK（一次性）与 MOVED（永久改路由）的区别 |
+
+---
+
 ## 🔗 相关笔记
 
 - [[01-RDB与AOF持久化]] — 前置
@@ -186,30 +208,6 @@ with rc.pipeline() as p:
 - [[../00-Redis学习路径总索引]] — 返回总索引
 - [[阶段二-持久化与高可用/01-RDB与AOF持久化]] — 既有深度参考
 - [[../毕业项目-分布式缓存网关/v5-Cluster分片版]] — 毕业项目应用
-
----
-
-## ✅ 自检清单
-
-### 🟢 基础（必须掌握）
-
-- [ ] 能解释 Cluster 的分片原理
-- [ ] 能用 `redis-cli --cluster create` 搭建 3 主 3 从集群
-- [ ] 能用 `-c` 集群模式读写
-- [ ] 能用 Hash Tag 确保多 Key 同槽
-
-### 🟡 进阶（综合运用）
-
-- [ ] 能执行集群扩容（加节点 + 迁槽）
-- [ ] 能执行集群缩容（迁槽 + 删节点）
-- [ ] 能用 Python redis-py 连接集群
-- [ ] 能用 `CLUSTER NODES/SLOTS/INFO` 查看集群状态
-
-### 🔴 挑战（独立判断）
-
-- [ ] 能设计跨机房的 Cluster 部署方案
-- [ ] 能分析 Cluster 故障转移过程
-- [ ] 能对比 Redis Cluster、Codis、Twemproxy 的分片方案
 
 ---
 

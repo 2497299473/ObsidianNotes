@@ -34,6 +34,28 @@ lark_doc_url: https://my.feishu.cn/docx/EUKfddHFKoCCQ7xjIHwc8fwJnHh
 | v6 | [[v6-Lua脚本与事务版]] | Lua 脚本实现原子缓存更新 |
 | v7 | [[v7-监控与压测调优版]] | 监控 + 压测 + 性能调优 |
 
+**进度勾选**（做完一版勾一行；`make vN` 全绿才算完成）
+
+- [ ] v1 单机缓存服务版
+- [ ] v2 多数据结构组合版
+- [ ] v3 持久化与AOF版
+- [ ] v4 主从高可用版
+- [ ] v5 Cluster分片版
+- [ ] v6 Lua脚本与事务版
+- [ ] v7 监控与压测调优版
+
+> 🛠️ 验收入口：同目录 `Makefile`（`make help` 列全部 target，`make all` 连跑七版）。
+
+---
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 上面 7 行勾满：每版各自的验收标准逐条能拿出证据（v1 `curl` 读写为 `ok`、v3 重启后 `GET` 仍有值、v4 `connected_slaves:2`、v5 `cluster_slots_assigned:16384`、v6 扣减返回 1/0 且余额对得上、v7 压测有 rps 输出），并能说出 `make help` 里每个 target 对应哪一版 |
+| 🟡 进阶 | `make all` 七个 target 连续全绿（每版都打出“vN 验收通过”）；`make clean` 后 `redis-cli -p 6379/6380/7000 PING` 全部连不上、无残留 `app.py` 进程 |
+| 🔴 挑战 | 交 5 份可核对证据：① `make all` 全绿日志；② v4 `+switch-master` 日志片段；③ v5 `CLUSTER NODES` 的 3 主 3 从；④ v6 并发 100 扣减无超卖（成功次数 = 库存数）；⑤ v7 两次压测对比表（基线/调优后/QPS 提升%） |
+
 ---
 
 ## 🔗 相关笔记

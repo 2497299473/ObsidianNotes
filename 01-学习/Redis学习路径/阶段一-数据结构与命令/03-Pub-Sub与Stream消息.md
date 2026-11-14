@@ -97,7 +97,7 @@ XINFO CONSUMERS mystream group1
 | 消费者组 | ❌ | ❌ | ✅ |
 | 消息确认 | ❌ | ❌ | ✅ |
 | 消息回溯 | ❌ | ❌ | ✅ |
-| 多消费者广播 | ✅ | ❌（竞争消费） | ✅ |
+| 多消费者广播 | ✅ | ❌（竞争消费） | ✅（按消费者组 fan-out；同组内竞争） |
 | 适用场景 | 实时通知 | 简单队列 | 可靠消息队列 |
 
 ### Stream 消息处理流程
@@ -108,7 +108,7 @@ XINFO CONSUMERS mystream group1
 3. 处理消息
 4. XACK → 确认消费
 5. XPENDING → 检查未确认
-6. XCLAIM → 转移超时消息给其他消费者
+6. XCLAIM → 转移超时消息给其他消费者（6.2+ 可用 `XAUTOCLAIM key group consumer min-idle-time 0` 一次扫过并认领，省去先查 XPENDING 的步骤）
 ```
 
 ---
@@ -178,6 +178,16 @@ r.xadd("orders", {"k": "v"}, maxlen=10000, approximate=True)
 
 ---
 
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 终端 A `SUBSCRIBE news`，终端 B `PUBLISH news hi` → A 收到 `hi`；`PUBSUB NUMSUB news` 返回订阅者数 `1`；此时关闭 A 再 `PUBLISH`，消息直接丢失（`NUMSUB` → `0`） |
+| 🟡 进阶 | `XADD s * k v` 连发 2 条 → `XGROUP CREATE s g 0` → `XREADGROUP GROUP g c1 COUNT 10 STREAMS s >` 取到 2 条 → `XPENDING s g` 显示 2 → `XACK s g <id1> <id2>` 后 `XPENDING s g` 归 0，`XLEN s` 仍为 2 |
+| 🔴 挑战 | 读一条不 ACK 就退出消费者 c1，用 `XAUTOCLAIM s g c2 30000 0` 把它转给 c2，输出被转消息 ID 与 `XPENDING` 中的 `delivery-count` 变化；用 3 行说明为何这是 at-least-once 而非 exactly-once（消费后、ACK 前崩溃即重投） |
+
+---
+
 ## 🔗 相关笔记
 
 - [[01-Redis基础与字符串命令]] — 前置
@@ -185,30 +195,6 @@ r.xadd("orders", {"k": "v"}, maxlen=10000, approximate=True)
 - [[01-学习/Redis学习路径/阶段一-数据结构与命令/99-阶段1复习检查点|99-阶段1复习检查点]] — 阶段验收
 - [[../00-Redis学习路径总索引]] — 返回总索引
 - [[阶段一-数据结构与命令/03-Pub-Sub与Stream消息]] — 既有深度参考
-
----
-
-## ✅ 自检清单
-
-### 🟢 基础（必须掌握）
-
-- [ ] 能用 `SUBSCRIBE` 和 `PUBLISH` 实现实时消息
-- [ ] 能用 `XADD` 和 `XREAD` 实现基本消息队列
-- [ ] 能创建消费者组并读取消息
-- [ ] 能用 `XACK` 确认消息消费
-
-### 🟡 进阶（综合运用）
-
-- [ ] 能用 `XPENDING` 和 `XCLAIM` 处理死信
-- [ ] 能用 `XTRIM` 或 `MAXLEN` 控制 Stream 长度
-- [ ] 能用 Python 实现完整的消费者组流程
-- [ ] 能对比 Pub-Sub、List、Stream 的优劣
-
-### 🔴 挑战（独立判断）
-
-- [ ] 能设计一个支持 Exactly-Once 的消息方案
-- [ ] 能分析 Stream 消费者组的可靠性与 Kafka 的对比
-- [ ] 能设计 Stream 的监控与告警方案
 
 ---
 

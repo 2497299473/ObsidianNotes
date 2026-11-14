@@ -1,1 +1,3 @@
-redis>=5.0.0
+# 示例按 redis-py 8.x 验证（阶段一/03 的 xpending_range 使用 min=/max= 关键字参数）
+# 5.x 的参数名未核实，为避免 TypeError 收紧到 >=6.0
+redis>=6.0.0

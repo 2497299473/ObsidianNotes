@@ -99,19 +99,13 @@ with rc.pipeline() as p:
 
 ---
 
-## ✅ 自检清单
+## 🎯 本文学完自检
 
-### 🟢 基础
-- [ ] Cluster 搭建成功
-- [ ] 自动路由正确
-
-### 🟡 进阶
-- [ ] 能执行扩容缩容
-- [ ] 理解 Hash Tag 原理
-
-### 🔴 挑战
-- [ ] 能设计跨机房 Cluster 方案
-- [ ] 能分析 Cluster 故障转移过程
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | `CLUSTER INFO` 返回 `cluster_state:ok` 与 `cluster_slots_assigned:16384`；`CLUSTER NODES` 能数出 3 个 master + 3 个 slave，且每个 master 后面挂着 1 个从 |
+| 🟡 进阶 | `-c` 模式 `SET user:1 alice` 后 `GET` 成功（自动路由）；`MSET {u1}:a 1 {u1}:b 2` 成功，而 `MSET u1:a u2:b` 报 `CROSSSLOT`，能说出 `{u1}` 为何能保证同槽 |
+| 🔴 挑战 | `--cluster reshard` 迁 1000 槽后用 `CLUSTER COUNTKEYSINSLOT`/`CLUSTER SLOTS` 证明分布已变；迁移过程中用不带 `-c` 的客户端访问命中该槽的 key，记录一条 `ASK`（与 `MOVED` 的区别写成 2 行） |
 
 ---
 

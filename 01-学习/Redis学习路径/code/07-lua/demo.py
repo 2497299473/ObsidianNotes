@@ -4,11 +4,13 @@ Redis 阶段三 · Lua 脚本调用示例
 对应笔记: [[01-事务与Lua脚本]]
 """
 import redis
+from pathlib import Path
 
 r = redis.Redis(host="localhost", port=6379, decode_responses=True)
 
-# 读取 Lua 脚本
-with open("stock.lua", "r") as f:
+# 读取 Lua 脚本（用 __file__ 定位，避免依赖运行时 cwd）
+script_path = Path(__file__).with_name("stock.lua")
+with script_path.open("r", encoding="utf-8") as f:
     script = f.read()
 
 stock_decr = r.register_script(script)
