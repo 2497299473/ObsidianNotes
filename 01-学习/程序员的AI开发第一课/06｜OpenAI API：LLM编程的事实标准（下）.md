@@ -349,6 +349,8 @@ SSE 是服务器发送事件（Server-Sent Event），它是一种服务器推�
 
 ![](https://static001.geekbang.org/resource/image/e7/85/e7d6b86a01fe0871eb5fb1dbfcc7c885.jpg?wh=3747x3449)
 
+> 图注：原图若无法加载，展开紧随原图的 🔁 重绘版。另注：`finish_reason=stop` 帧之后，OpenAI 还会发一帧 `data: [DONE]` 标记流结束（正文未展开，客户端 SDK 会自动处理）。
+
 <details>
 <summary>🔁 重绘版：常规应答 vs SSE 流式（mermaid 时序图；原图保留如上）</summary>
 
@@ -373,8 +375,6 @@ sequenceDiagram
 ```
 
 </details>
-
-> 图注：原图若无法加载，展开上方 🔁 重绘版。另注：`finish_reason=stop` 帧之后，OpenAI 还会发一帧 `data: [DONE]` 标记流结束（正文未展开，客户端 SDK 会自动处理）。
 
 对比很多人熟悉的 Websocket 来看，我们会更清楚一些：
 

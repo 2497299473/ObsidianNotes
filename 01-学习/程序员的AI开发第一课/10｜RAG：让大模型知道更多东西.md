@@ -60,6 +60,8 @@ RAG 是 Retrieval-Augmented Generation 的缩写，也就是检索增强生成�
 
 ![](https://static001.geekbang.org/resource/image/88/2c/88732f87e0aaa2ac2ef1a7410668e72c.jpg?wh=1722x1126)
 
+> 图注：原图若无法加载（外链图床），展开紧随原图的 🔁 重绘版。
+
 <details>
 <summary>🔁 重绘版：RAG 极简流程（mermaid；原图保留如上）</summary>
 
@@ -73,8 +75,6 @@ flowchart LR
 ```
 
 </details>
-
-> 图注：原图若无法加载（外链图床），展开上方 🔁 重绘版。
 
 用户发起请求
 

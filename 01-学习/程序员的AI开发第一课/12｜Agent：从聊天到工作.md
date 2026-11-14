@@ -77,6 +77,8 @@ AutoGPT 刚刚出来的时候，惊艳到了很多人。只需要一个简单提
 
 ![](https://static001.geekbang.org/resource/image/19/50/19423b147c3159ec29a62842d4eaab50.jpg?wh=3329x1321)
 
+> 图注：原图若无法加载（外链图床），展开紧随原图的 🔁 重绘版。
+
 <details>
 <summary>🔁 重绘版：Agent 三组件（mermaid；原图保留如上）</summary>
 
@@ -94,8 +96,6 @@ flowchart TD
 ```
 
 </details>
-
-> 图注：原图若无法加载（外链图床），展开上方 🔁 重绘版。
 
 这里面包含了一些重要的组件：
 

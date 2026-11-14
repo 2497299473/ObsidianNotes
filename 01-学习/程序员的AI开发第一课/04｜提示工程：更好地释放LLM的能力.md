@@ -123,6 +123,8 @@ Aside from the Apple Remote, what other devices can control the program Apple Re
 
 ![](https://static001.geekbang.org/resource/image/37/5d/374e31c78c730e38615ace6f0d49675d.jpg?wh=4408x3110)
 
+> 图注：原图若无法加载，展开紧随原图的 🔁 重绘版。另注：「是否结束」的判定由**下一轮 Thought** 做出（13 篇：有了观察结果，大模型会重复思考直到决定结束），Observation 本身只负责回传结果。
+
 <details>
 <summary>🔁 重绘版：ReAct 循环（mermaid；原图保留如上）</summary>
 
@@ -137,8 +139,6 @@ flowchart TD
 ```
 
 </details>
-
-> 图注：原图若无法加载，展开上方 🔁 重绘版。另注：「是否结束」的判定由**下一轮 Thought** 做出（13 篇：有了观察结果，大模型会重复思考直到决定结束），Observation 本身只负责回传结果。
 
 在这个例子里，大模型为了完成一个大目标，需要不断地做一些任务。每个任务都会经历思考（Thought）、行动（Action）、观察（Observation）三个阶段。思考，决定了下一步的行动；行动是完成了一个具体的动作；而观察，则是对行动结果进行评估，决定是否要结束这个处理过程。
 
