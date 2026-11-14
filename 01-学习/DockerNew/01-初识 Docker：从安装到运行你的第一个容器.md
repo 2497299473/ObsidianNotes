@@ -133,7 +133,7 @@ docker stop my-nginx && docker rm my-nginx
 > - `-d`：后台运行（detached），不占用终端
 > - `-p 8080:80`：把宿主机的 8080 端口映射到容器的 80 端口（方向：宿主→容器）
 > - `--name my-nginx`：给容器起个名字，方便后续操作
-> - `nginx:alpine`：镜像名，`alpine` 是精简版（只有 ~7MB，标准版 190MB）
+> - `nginx:alpine`：镜像名，`alpine` 指的是精简版基础镜像（alpine 底包本身只有 ~7MB，但整个 `nginx:alpine` 含 nginx 二进制和依赖，体积比标准版 190MB 小一个数量级；具体大小以 `docker images` 为准）
 > - `docker start`：重新启动已停止的容器（容器数据还在）
 > - `docker run`：创建并启动一个**新**容器（每次 run 都是新容器）
 

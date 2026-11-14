@@ -49,10 +49,12 @@ lark_doc_url: https://my.feishu.cn/docx/BZVYd1lnwo6KsnxCJiCcNDvhn5d
 
 ## 🚀 快速开始
 
+> 本目录是笔记库内嵌项目（非独立 git 仓库）。以下命令在库根 `D:\Notes\My-First-Obsidian` 下执行；方式四的 `APP_VERSION=1.0.0` 是 bash 语法，Windows 请用 WSL2/Git Bash，或 PowerShell 下先 `$env:APP_VERSION="1.0.0"`。
+
 ### 方式一：纯开发环境（3 服务，热更新）
 
 ```bash
-cd "D:/Obsidian/My-First-Obsidian/01-学习/DockerNew/Go+Docker综合项目"
+cd "01-学习/DockerNew/Go+Docker综合项目"
 docker compose -f compose.yaml -f compose.dev.yaml up -d --build
 curl http://localhost:8080/health
 ```
@@ -77,8 +79,12 @@ docker compose -f compose.yaml -f compose.monitoring.yaml \
 ### 方式四：生产环境（安全加固 + Nginx）
 
 ```bash
-APP_VERSION=latest docker compose -f compose.yaml -f compose.prod.yaml up -d
+APP_VERSION=1.0.0 docker compose -f compose.yaml -f compose.prod.yaml up -d
 ```
+
+> `compose.prod.yaml` 里设了 `pull_policy: always`，这条命令会**从 ghcr.io 拉取 CI 推送的镜像**，不会本地重编译。
+> 若只想在本机验证生产配置（镜像还没推上去），把 `compose.prod.yaml` 里的 `pull_policy: always` 临时注释掉，再 `docker compose -f compose.yaml -f compose.prod.yaml up -d --build`。
+> `APP_VERSION` 默认值是 `1.0.0`，请换成你实际推送到仓库的 tag。
 
 ### 方式五：K8S 部署（Helm Chart）
 
@@ -148,6 +154,7 @@ go-todo-api/
 │       ├── serviceaccount.yaml
 │       └── servicemonitor.yaml        # Prometheus Operator 自动发现
 ├── main.go                            # Go API（Gin+GORM+Redis+Prometheus+OTel）
+├── main_test.go                       # 单元测试（id 校验 + PUT 写入白名单，不依赖 DB/Redis）
 ├── go.mod
 ├── Dockerfile                         # 多阶段构建（生产级 ~15MB）
 ├── Dockerfile.dev                     # 开发用（air 热更新）

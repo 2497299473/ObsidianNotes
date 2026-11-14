@@ -168,7 +168,9 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.28.0
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          # 按 build job 产出的 digest 扫：tag push 事件下 metadata-action 不会推 :latest，
+          # 写死 :latest 在 tag 流水线里会 404
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build.outputs.image-digest }}
           format: sarif
           output: trivy-results.sarif
           severity: HIGH,CRITICAL

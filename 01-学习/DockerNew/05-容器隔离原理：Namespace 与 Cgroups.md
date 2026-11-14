@@ -7,7 +7,7 @@ tags:
   - Cgroups
   - 容器隔离
   - 资源限制
-description: Docker 学习路径第 5 篇：在亲手用过 Docker 之后，深入理解容器隔离的底层原理——Linux Namespace 六大隔离和 Cgroups 资源限制，亲手验证隔离效果。
+description: Docker 学习路径第 5 篇：在亲手用过 Docker 之后，深入理解容器隔离的底层原理——Linux Namespace 七种隔离（六大 + cgroup）和 Cgroups 资源限制，亲手验证隔离效果。
 lark_doc_url: https://my.feishu.cn/docx/VMPmdo2GgoM1M9xOZ41ceWS6n9f
 ---
 
@@ -65,7 +65,7 @@ flowchart LR
 > [!important] 从"魔法"到"机制"
 > 你之前用 `docker run` 启动容器，感觉像魔法一样——容器有自己的文件系统、自己的 IP、自己的进程。现在你知道，这背后是 Linux 内核的 **Namespace** 和 **Cgroups**。
 
-### 3. 六大 Namespace
+### 3. 七种 Namespace（常说的六大 + cgroup）
 
 | Namespace | 隔离内容 | 容器中的效果 |
 |-----------|---------|------------|
@@ -75,15 +75,16 @@ flowchart LR
 | **UTS** | 主机名和域名 | 容器可以有自己的 hostname |
 | **IPC** | 进程间通信 | 容器内的共享内存、信号量独立 |
 | **USER** | 用户和组 ID | 容器内 root 不一定等于宿主 root（依赖 user ns） |
+| **cgroup** | cgroup 层级视图 | 容器只看到自己的 cgroup 子树，看不到宿主和其他容器的 `memory.max`/`cpu.max`（27.x 在 cgroup v2 下默认 `--cgroupns=private`） |
 
 > [!tip] 不需要死记硬背
-> 你只需要理解一个核心概念：**每个 Namespace 隔离一个维度，六个维度合起来，让容器觉得自己是独立机器。** 刚开始只需记住 PID、NET、MNT 三大核心。
+> 你只需要理解一个核心概念：**每个 Namespace 隔离一个维度，这些维度合起来，让容器觉得自己是独立机器。** 上面六种是面试和文档里最常提的，`cgroup` 则决定了 `docker stats` 里"看不到别的容器"这件事；刚开始只需记住 PID、NET、MNT 三大核心。
 
 ### 4. Cgroups——资源限制
 
 | Cgroup 子系统 | 限制内容 | Docker 参数 | 什么时候用 |
 |---------------|---------|------------|------------|
-| cpu | CPU 时间片 | `--cpus="1.5"` | 防止容器吃光 CPU |
+| cpu | CPU 时间配额 | `--cpus="1.5"`（1.5 核，绝对值） | 防止容器吃光 CPU |
 | memory | 内存上限 | `--memory="256m"` | 防止容器 OOM |
 | blkio | 磁盘 IO | `--device-read-bps` | 限制磁盘读写速度 |
 | pids | 进程数 | `--pids-limit=100` | 防止 fork 炸弹 |
@@ -203,24 +204,29 @@ docker run -d --name limited-cpu --cpus="0.5" --rm alpine sh -c "while :; do :; 
 
 # 5. 观察 CPU 使用
 docker stats limited-cpu --no-stream
-# 现在只能使用 50% 的 CPU
+# 现在最多使用单核的 50%（0.5 核），不是整机的 50%
 
 # 6. 清理
 docker stop limited-cpu
 ```
 
 > 💡 **注释**：
-> `--cpus="0.5"` 限制容器最多使用 0.5 个 CPU 核心。即使容器内的程序想跑满 CPU，Cgroups 也会把它限制在 50%。这在多租户环境中非常重要。
+> `--cpus="0.5"` 限制容器最多使用 0.5 个 CPU 核心，即**单核的 50%**，不是整机 CPU 的 50%（8 核宿主机上只占整机 6.25%）。它是**硬上限而非预留**：宿主机再空闲，容器也不能超过这个额度。
+>
+> 换算到 Cgroups（CFS 配额）就是 `cpu.max = 50000 100000`：每 100ms 调度周期内，容器最多累计使用 50ms CPU 时间。即使容器内的程序想跑满 CPU，配额用完后也会被 throttle 到下一个周期。`docker stats` 里的百分比同样按单核归一化，所以这里会显示约 50%。这在多租户环境中非常重要。
 
 ### 练习 5：模拟 OOM（内存耗尽）
 
 ```bash
 # ⚠️ 这个练习会触发 OOM Kill，注意清理
 
-# 1. 启动一个内存限制为 50MB 的容器
-docker run -d --memory=50m --name oom-test alpine sh -c "while true; do dd if=/dev/zero of=/tmp/fill bs=1M count=100; sleep 1; done"
+# 1. 启动一个内存限制为 50MB 的容器；dd 直接作为 PID 1 运行
+docker run -d --name oom-test \
+  --memory=50m --memory-swap=50m --shm-size=100m \
+  alpine dd if=/dev/zero of=/dev/shm/fill bs=1M count=100
 
 # 2. 等待几秒，查看容器状态
+sleep 5
 docker ps -a | grep oom-test
 # STATUS 显示 "Exited (137)" —— 137 = 128 + 9 = SIGKILL（OOM Killer 杀的）
 
@@ -233,7 +239,9 @@ docker rm oom-test
 ```
 
 > 💡 **注释**：
-> `Exited (137)` 是 OOM Kill 的标志。137 = 128 + 9（SIGKILL 信号）。容器试图用超过 50MB 的内存，被 Cgroups 限制后内核 OOM Killer 强制杀死了进程。这就是为什么生产环境必须设置 `--memory`。
+> `Exited (137)` 是 OOM Kill 的标志。137 = 128 + 9（SIGKILL 信号）。`--memory=50m` 设置内存硬上限，`--memory-swap=50m` 同时禁用 swap；`dd` 向 `/dev/shm`（tmpfs）写入 100MB 时，内存页无法回收，内核 OOM Killer 杀死作为 PID 1 的 `dd`，容器退出。
+>
+> **为什么写普通文件不会 OOM？** `/dev/shm` 是 tmpfs，写入的数据是 **shmem（共享内存页）**，没有 swap 时不可回收；而 `/tmp/fill` 是磁盘上的普通文件，写入的数据属于**文件页缓存（page cache）**，内存紧张时内核会先写回磁盘并回收缓存。页缓存虽然也计入 cgroup 内存，但它可回收，所以容器往往不会触发 OOM，而是一直循环写文件。要稳定复现 OOM，必须使用不可回收的内存（匿名内存或无 swap 的 tmpfs）。
 
 ---
 
@@ -306,7 +314,7 @@ docker rm oom-test
 |------|--------|
 | 🟢 基础 | 能说出 Namespace 和 Cgroups 各自解决什么问题；能用 `docker stats` 查看容器资源使用 |
 | 🟡 进阶 | 能通过 `docker exec` 验证 PID、NET、MNT 三种 Namespace 的隔离效果；能用 `--memory` 和 `--cpus` 限制容器资源 |
-| 🔴 挑战 | 能在 Linux 宿主机上找到某个运行中容器的 PID Namespace 和 Cgroup 路径，并验证其资源限制；能解释每个隔离维度的作用 |
+| 🔴 挑战 | 在 WSL2 里跑 `ls -l /proc/$(docker inspect -f '{{.State.Pid}}' <容器>)/ns/` 列出 ≥4 个 `*_ns` 链接（pid/net/mnt/uts/ipc/user 任选），并读出该容器的 `memory.max`；**无 WSL2 时用替代判据**：`docker inspect -f '{{.HostConfig.Memory}} {{.HostConfig.NanoCpus}} {{.HostConfig.CpuQuota}}' <容器>` 报出三个值，并解释 `NanoCpus=500000000` 对应多少核、`Memory=268435456` 对应多少 MB |
 
 ---
 

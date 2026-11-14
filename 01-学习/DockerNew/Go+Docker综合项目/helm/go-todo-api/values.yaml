@@ -8,7 +8,8 @@
 # ===== 镜像 =====
 image:
   repository: ghcr.io/summer/go-todo-api
-  tag: "latest"
+  # 默认值写具体版本（与 values-prod.yaml、compose.prod.yaml 一致）；dev 环境在 values-dev.yaml 里用 latest + Always
+  tag: "1.0.0"
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []

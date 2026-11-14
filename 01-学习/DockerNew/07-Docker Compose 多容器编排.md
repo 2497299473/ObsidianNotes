@@ -211,10 +211,10 @@ services:
 DEBUG=1
 APP_VERSION=1.2.3
 
-# compose.yaml 中用 ${VAR}
+# compose.yaml 中用 ${VAR}（默认值写具体版本，不要用 latest）
 services:
   web:
-    image: myapp:${APP_VERSION:-latest}
+    image: myapp:${APP_VERSION:-1.0.0}
     environment:
       - DEBUG=${DEBUG}
 ```
@@ -482,7 +482,7 @@ rm .env compose.yaml
 cat > compose.yaml << 'EOF'
 services:
   web:
-    image: myapp:${APP_VERSION:-latest}
+    image: myapp:${APP_VERSION:-1.0.0}
     ports:
       - "5000:5000"
 EOF
@@ -557,7 +557,7 @@ rm compose.yaml compose.dev.yaml compose.prod.yaml
 2. **尝试 Compose Watch**：加 `develop.watch` 配置实现代码热更新
 3. **尝试 `docker compose profiles`**：用 profiles 管理可选服务（如仅开发时启动的调试工具）
 4. **尝试 `docker compose exec web sh`**：进入 Compose 管理的容器
-5. **尝试 Swarm Stack**：`docker stack deploy -c compose.yaml myapp`——同一文件可以用于 Swarm 部署
+5. **尝试 Swarm Stack（需另写一份 v3 文件）**：`docker stack deploy -c compose.yaml myapp` 不能直接拿去用——stack 只接受 compose v3 语法，且不支持本章用到的 `build`、`develop.watch`、`depends_on.condition`，会报 `unsupported Compose file version` 或这些字段被静默忽略。真要在 Swarm 上跑，先复制一份 v3 文件：删掉这三个字段、`image:` 改成已推送到仓库的镜像 tag。
 
 ---
 

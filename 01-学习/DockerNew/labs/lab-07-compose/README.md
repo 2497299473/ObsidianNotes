@@ -31,7 +31,9 @@ docker compose ps
 
 # 浏览器访问
 # http://localhost:5000/health          → {"status":"ok"}
-# http://localhost:5000/api/todos       → []
+# http://localhost:5000/api/todos       → 2 条种子数据（init.sql）：
+#   [{"id":1,"title":"学习 Docker Compose","done":false},
+#    {"id":2,"title":"完成 Lab 07","done":false}]
 # http://localhost:5000/api/cache/test  → {"visit_count":1}
 ```
 
@@ -64,21 +66,22 @@ docker compose logs --tail 30
 
 ```bash
 # 创建 TODO
+# 注意：init.sql 已插入 2 条种子数据（id=1、2），所以新建的拿到 id=3
 curl -X POST http://localhost:5000/api/todos \
   -H "Content-Type: application/json" \
   -d '{"title":"学习 Docker Compose","done":false}'
-# {"id":1,"title":"学习 Docker Compose","done":false}
+# {"id":3,"title":"学习 Docker Compose","done":false}
 
-# 列出所有 TODO
+# 列出所有 TODO（ORDER BY id，共 3 条：2 条种子 + 1 条新增）
 curl http://localhost:5000/api/todos
 
-# 更新 TODO
-curl -X PUT http://localhost:5000/api/todos/1 \
+# 更新 TODO（改成你刚创建的那条，id=3）
+curl -X PUT http://localhost:5000/api/todos/3 \
   -H "Content-Type: application/json" \
   -d '{"title":"学完 Compose","done":true}'
 
 # 删除 TODO
-curl -X DELETE http://localhost:5000/api/todos/1
+curl -X DELETE http://localhost:5000/api/todos/3
 ```
 
 ### 3. 测试 Redis 缓存
@@ -106,7 +109,7 @@ docker compose exec web sh
 ### 5. 验证数据库持久化（Volume）
 
 ```bash
-# 创建一条 TODO
+# 创建一条 TODO（接上一节的删除，自增到 id=4）
 curl -X POST http://localhost:5000/api/todos \
   -H "Content-Type: application/json" \
   -d '{"title":"持久化测试","done":false}'
@@ -119,7 +122,10 @@ docker compose up -d web
 
 # 数据还在！
 curl http://localhost:5000/api/todos
-# [{"id":1,"title":"持久化测试","done":false}]
+# [{"id":1,"title":"学习 Docker Compose","done":false},
+#  {"id":2,"title":"完成 Lab 07","done":false},
+#  {"id":4,"title":"持久化测试","done":false}]
+# 关键是 id=4 那条还在：它存在 db 的命名卷 db-data 里，web 容器只是消费者
 ```
 
 ### 6. 体验健康检查和依赖

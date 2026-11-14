@@ -42,7 +42,9 @@ services:
     networks:
       - backend
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U app -d appdb"]
+      # 用 ${POSTGRES_USER}/${POSTGRES_DB} 让健康检查跟着 environment 一起参数化；
+      # Compose 里 $$ 转义成容器内的 $，由容器 shell 在运行时展开
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 5

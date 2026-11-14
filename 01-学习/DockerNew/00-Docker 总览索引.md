@@ -7,7 +7,7 @@ tags:
   - 容器化
   - DevOps
   - 渐进式学习
-description: Docker 渐进式学习路径总索引：从一条命令到生产部署，11 篇笔记由浅入深，每章配有实践练习和可选迭代建议。
+description: Docker 渐进式学习路径总索引：从一条命令到生产部署，11 篇笔记由浅入深，附 CLI 参数速查，每章配有实践练习和可选迭代建议。
 lark_doc_url: https://my.feishu.cn/docx/VTB6dmugMoa3nlx71q0c5goXn3d
 ---
 
@@ -25,13 +25,19 @@ lark_doc_url: https://my.feishu.cn/docx/VTB6dmugMoa3nlx71q0c5goXn3d
 | 2   | [[02-容器管理：查看、停止、调试与端口映射]]         | 容器生命周期、ps/logs/exec、端口映射、命名与重启策略                     | 2h   | 🟢 会用 |
 | 3   | [[03-构建你的第一个镜像]]                  | Dockerfile 入门、FROM/COPY/RUN/CMD、docker build、镜像标签    | 2h   | 🟢 会用 |
 | 4   | [[04-镜像分层原理：为什么构建这么快]]            | UnionFS/OverlayFS、层缓存机制、.dockerignore、docker history | 1.5h | 🟡 理解 |
-| 5   | [[05-容器隔离原理：Namespace 与 Cgroups]] | 六大 Namespace、Cgroups 资源限制、动手验证隔离效果                   | 2h   | 🟡 理解 |
+| 5   | [[05-容器隔离原理：Namespace 与 Cgroups]] | Namespace（六大 + cgroup）、Cgroups 资源限制、动手验证隔离效果                   | 2h   | 🟡 理解 |
 | 6   | [[06-容器网络与存储]]                    | bridge 网络、端口映射原理、Volume/Bind Mount、数据持久化             | 2.5h | 🟡 理解 |
 | 7   | [[07-Docker Compose 多容器编排]]       | compose.yaml 语法、服务依赖、健康检查、环境变量、热更新                   | 2.5h | 🟡 编排 |
 | 8   | [[08-镜像优化：多阶段构建与瘦身]]              | 多阶段构建、alpine/slim 选择、构建缓存、BuildKit 加速                | 2h   | 🔴 优化 |
 | 9   | [[09-生产安全加固]]                     | 非 root 用户、Trivy 扫描、资源限制、只读文件系统、capabilities          | 2h   | 🔴 生产 |
 | 10  | [[01-学习/DockerNew/10-业务场景实战合集]]   | 10 大场景：开发环境、CI/CD、日志、数据库、缓存、静态站点等                    | 3h   | 🔴 实战 |
 | 11  | [[11-面试高频 20 问]]                  | 20 道面试题逐题解析 + 黄金三段式 + 生产经验加分                         | 速查用  | 🔴 闭环 |
+
+### 🧰 速查手册
+
+| 笔记 | 用途 |
+|------|------|
+| [[Docker CLI 参数速查]] | `-` 与 `--` 的写法规则、`-d`/`--rm`、`docker run/ps/exec/logs/build` 常用选项与短选项对照 |
 
 ---
 
@@ -116,6 +122,19 @@ docker run --rm hello-world
 > [!important] 版本说明
 > 本课程基于 **Docker 27.x + Compose V2 + BuildKit**。Compose V2 使用 `docker compose`（无横杠）命令。BuildKit 默认开启，无需显式设置 `DOCKER_BUILDKIT=1`。
 
+> [!warning] Windows 用户：示例命令默认 bash
+> 本课程的终端示例默认 **Linux/macOS 的 bash**。Windows 用户请在 **WSL2**（`wsl --install`）或 **Git Bash** 里执行；heredoc（`cat > 文件 << 'EOF'`）、`grep`、`rm -rf`、`VAR=值 命令` 等写法在原生 PowerShell 下不可用。部分章节附有 PowerShell 备注；建文件类步骤也可以直接用编辑器新建文件，不必依赖 heredoc。
+
+---
+
+## 🎓 全课程毕业自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 结业 | 从空目录用一份 Dockerfile + 一份 compose.yaml 起 3 个服务，`docker compose ps` 全部 `Up`/`healthy`；`docker images` 里自建镜像 < 50MB |
+| 🟡 讲得清 | 用 3 条命令现场验证三件事并说出对应章节：`docker image history` 指出基础层；`docker inspect -f '{{.State.Pid}}' <容器>` + `docker top <容器>` 对比容器内外 PID；在自定义网络内用容器名互 ping |
+| 🔴 拿得出 | 完成 `Go+Docker综合项目` 的任务 1-5，交 3 个证据：生产镜像 < 20MB 的 `docker images` 输出、`trivy image --severity HIGH,CRITICAL` 的计数、Grafana 面板截图；再用黄金三段式口述"多阶段构建为什么能瘦 98%"（≤60 秒，至少含 1 条生产注意事项） |
+
 ---
 
 ## 🔗 相关笔记
@@ -128,4 +147,4 @@ docker run --rm hello-world
 
 ---
 
-*最后更新：2026-07-28*
+*最后更新：2026-10-27*

@@ -147,7 +147,11 @@ func main() {
 	if redisURL == "" {
 		redisURL = "redis://cache:6379"
 	}
-	opts, _ := redis.ParseURL(redisURL)
+	// ParseURL 失败时返回的 opts 是 nil，直接传给 NewClient 会在后续 Ping 时 panic
+	opts, err := redis.ParseURL(redisURL)
+	if err != nil {
+		log.Fatalf("Invalid REDIS_URL %q: %v", redisURL, err)
+	}
 	cache = redis.NewClient(opts)
 	if err := cache.Ping(context.Background()).Err(); err != nil {
 		log.Fatalf("Failed to connect Redis: %v", err)
@@ -275,8 +279,13 @@ func createTodo(c *gin.Context) {
 }
 
 func getTodo(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
 	var todo Todo
-	if err := db.First(&todo, c.Param("id")).Error; err != nil {
+	if err := db.First(&todo, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 		return
 	}
@@ -284,16 +293,41 @@ func getTodo(c *gin.Context) {
 	c.JSON(http.StatusOK, todo)
 }
 
+// UpdateTodoInput PUT 请求体的白名单：只允许改 title / done。
+// 用指针是为了区分"没传这个字段"和"传了零值"（false / 空字符串）。
+// 结构体里没有 ID，客户端传 {"id": 999} 会被忽略，不会覆盖别的行。
+type UpdateTodoInput struct {
+	Title *string `json:"title"`
+	Done  *bool   `json:"done"`
+}
+
+// applyUpdate 把白名单字段写回已从库里查出的 todo，主键始终来自 URL 路径参数
+func applyUpdate(todo *Todo, in UpdateTodoInput) {
+	if in.Title != nil {
+		todo.Title = *in.Title
+	}
+	if in.Done != nil {
+		todo.Done = *in.Done
+	}
+}
+
 func updateTodo(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
 	var todo Todo
-	if err := db.First(&todo, c.Param("id")).Error; err != nil {
+	if err := db.First(&todo, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 		return
 	}
-	if err := c.ShouldBindJSON(&todo); err != nil {
+	var input UpdateTodoInput
+	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	applyUpdate(&todo, input)
 	if err := db.Save(&todo).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -303,7 +337,12 @@ func updateTodo(c *gin.Context) {
 }
 
 func deleteTodo(c *gin.Context) {
-	if err := db.Delete(&Todo{}, c.Param("id")).Error; err != nil {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	if err := db.Delete(&Todo{}, id).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
