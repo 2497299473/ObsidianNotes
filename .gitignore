@@ -42,3 +42,8 @@ memory/
 
 # Web Clipper 剪藏暂存区（原始抓捕件，留本地；整理后的终稿入 01-学习/ 等分类目录）
 Clippings/
+
+# 审查/验证临时产物（本地，不入库）
+.scratch/
+*.rmeta
+
