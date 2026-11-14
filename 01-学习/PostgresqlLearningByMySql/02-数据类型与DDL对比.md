@@ -125,7 +125,7 @@ SELECT lastval();  -- 最近使用的序列值
 | `CHAR(n)` | `CHAR(n)` | 定长，空格填充 |
 | `VARCHAR(n)` | `VARCHAR(n)` | 变长，有长度上限 |
 | `TEXT` | `TEXT` | 变长，无长度上限 |
-| `TINYTEXT` / `MEDIUMTEXT` / `LONGTEXT` | 无对应，统一用 `TEXT` | PG 的 TEXT 无大小限制 |
+| `TINYTEXT` / `MEDIUMTEXT` / `LONGTEXT` | 无对应，统一用 `TEXT` | PG 的 TEXT 实际上限 1GB（varlena 上限），无需指定长度 |
 | 无 | `VARCHAR`（不指定 n） | 无长度上限，等价于 TEXT |
 | `BLOB` / `LONGBLOB` | `BYTEA` | PG 用 BYTEA 存二进制 |
 | `BINARY` / `VARBINARY` | `BYTEA` | 用 BYTEA 替代 |
@@ -307,7 +307,7 @@ SELECT * FROM bool_examples WHERE is_active = 't';      -- 字符串简写
 | JSON 类型 | `JSON` | `JSON` + **`JSONB`** |
 | 存储格式 | 文本（原始字符串） | JSON: 文本 / JSONB: 二进制解析 |
 | 索引支持 | 有限（函数索引） | JSONB 原生支持 GIN 索引 |
-| 查询性能 | 一般 | JSONB 快 3-10 倍 |
+| 查询性能 | 一般 | 命中 GIN 的检索通常快数倍（量级参考，随查询形态波动，非定值） |
 | 保留空格 | 保留 | JSONB 不保留（解析后重建） |
 | 键顺序 | 保留 | JSONB 不保留（按内部排序） |
 
@@ -390,9 +390,9 @@ SELECT * FROM products WHERE attributes ? 'brand';
 SELECT * FROM products WHERE attributes->'tags' ? 'premium';
 
 -- 对比 MySQL：
--- MySQL 只能对 JSON 路径创建函数索引
--- CREATE INDEX idx_brand ON products ((attributes->>'$.brand'));
--- 只能优化特定路径查询，不能优化 @> 等包含查询
+-- MySQL 8.0.17+ 可用多值索引（multi-valued index）优化 JSON_CONTAINS()/JSON_OVERLAPS()/MEMBER OF() 数组包含查询
+-- CREATE INDEX idx_tags ON products ((CAST(attributes->'$.tags' AS UNSIGNED ARRAY)));
+-- PG 的 GIN 优势在任意路径 @> 与 ?/?|/?& 组合，不限于数组
 ```
 
 > [!tip] JSONB 迁移建议
@@ -491,7 +491,7 @@ CREATE TABLE users (
 
 INSERT INTO users (name, role) VALUES ('Alice', 'admin');
 
--- 新增枚举值（只能追加，不能修改已有值）
+-- 新增枚举值（可追加，也能用 BEFORE/AFTER 指定插入位置；但不能删除已有值、不能改值）
 ALTER TYPE user_role ADD VALUE 'moderator' BEFORE 'user';
 
 -- ============================================
@@ -510,7 +510,7 @@ CREATE TABLE companies (
 );
 
 INSERT INTO companies (name, address) VALUES
-('Acme', ROW('123 Main St', 'Springfield', '62701'));
+('Acme', ROW('123 Main St', 'Springfield', '62701')::address_type);  -- 复合类型列必须显式 cast（ROW 默认是匿名 record）
 
 -- 查询复合类型
 SELECT name, (address).city FROM companies;
@@ -640,7 +640,7 @@ CREATE INDEX idx_users_lower_email ON users (LOWER(email));
 ### 8.4 UUID 默认值
 
 ```sql
--- MySQL: DEFAULT UUID()
+-- MySQL 8.0.13+: uuid CHAR(36) DEFAULT (UUID())  -- 表达式默认值必须加括号；8.0.13 以下只能用触发器
 -- PostgreSQL 13+: DEFAULT gen_random_uuid()
 CREATE TABLE pg_sessions (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,

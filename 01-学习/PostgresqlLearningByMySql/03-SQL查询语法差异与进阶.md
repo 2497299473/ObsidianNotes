@@ -35,7 +35,7 @@ flowchart TD
 > [!important] 三大核心差异
 > • **RETURNING 子句**：PG 独有，INSERT/UPDATE/DELETE 后直接返回数据，替代 MySQL 的 `LAST_INSERT_ID()`
 > • **CTE**：MySQL 8.0 同样支持 `WITH RECURSIVE`（含非递归 CTE）；PG 的差异点是 `MATERIALIZED`/`NOT MATERIALIZED` 提示与 CTE 中可写 DML
-> • **严格 GROUP BY**：PG 要求 SELECT 中的非聚合列必须出现在 GROUP BY 中，MySQL 宽松允许
+> • **严格 GROUP BY**：PG 要求 SELECT 中的非聚合列必须出现在 GROUP BY 中；MySQL 8.0 默认含 ONLY_FULL_GROUP_BY 同样报错（仅关闭该模式时才宽松允许）
 
 ---
 
@@ -133,7 +133,11 @@ SELECT '123'::int, '3.14'::numeric, '2026-01-01'::date;
 SELECT int_col::text, text_col::int, timestamp_col::date;
 
 -- 安全转换（处理可能失败的转换）
--- PG 16+ 可用，低版本需自定义函数
+-- PG 16+：内置 pg_input_is_valid(值, 类型名) 先判定再转
+SELECT val FROM (VALUES ('123'), ('abc'), ('456')) AS t(val)
+WHERE pg_input_is_valid(val, 'int');          -- 只返回 123 / 456
+
+-- PG 16 之前：自定义函数兜底
 CREATE OR REPLACE FUNCTION safe_cast_int(text) RETURNS int AS $$
     SELECT CASE WHEN $1 ~ '^[0-9]+$' THEN $1::int ELSE NULL END
 $$ LANGUAGE SQL IMMUTABLE;
@@ -155,7 +159,7 @@ SELECT * FROM orders ORDER BY completed_at DESC NULLS LAST;  -- DESC 下默认 N
 -- ============================================
 -- LIKE 大小写差异
 -- ============================================
--- MySQL（utf8mb4_general_ci 默认不区分大小写）
+-- MySQL（默认 ci 排序规则不区分大小写；8.0 为 utf8mb4_0900_ai_ci，5.7 及更早为 utf8mb4_general_ci）
 -- SELECT * FROM users WHERE name LIKE '%alice%'; -- 能匹配 Alice
 
 -- PostgreSQL（默认区分大小写）
@@ -488,9 +492,9 @@ GROUP BY region;
 ### 5.1 行为差异
 
 ```sql
--- MySQL 宽松模式：允许 SELECT 非聚合列（返回不确定的值）
+-- MySQL 关闭 ONLY_FULL_GROUP_BY 时：允许 SELECT 非聚合列（返回不确定的值）
 -- MySQL: SELECT region, salesperson, SUM(amount) FROM sales_data GROUP BY region;
--- 不报错，但 salesperson 返回该组内某个不确定的值
+-- 8.0 默认含 ONLY_FULL_GROUP_BY，与 PG 一样报错；仅关闭该模式时不报错，salesperson 返回组内不确定值
 
 -- PostgreSQL 严格模式：必须聚合或出现在 GROUP BY 中
 -- SELECT region, salesperson, SUM(amount) FROM sales_data GROUP BY region;
@@ -898,7 +902,7 @@ RETURNING sku, name, stock, (xmax = 0) AS is_insert;
 **可量化验收标准**：
 - **完成标准**：用 `ON CONFLICT (sku) DO UPDATE SET stock = product_stock.stock + EXCLUDED.stock` 实现库存累加，用 `RETURNING ... (xmax=0) AS is_insert` 区分插入/更新
 - **预期输出**：首次执行返回 3 行 `is_insert=true`；再次执行返回 3 行 `is_insert=false`，stock 翻倍（SKU001: 200）
-- **自测方法**：`SELECT sku, stock FROM product_stock WHERE sku='SKU001'` 验证 stock 正确累加；`SELECT (xmax=0) FROM product_stock` 首次 true 重复 false
+- **自测方法**：`SELECT sku, stock FROM product_stock WHERE sku='SKU001'` 验证 stock 正确累加；连续执行两次同一 `INSERT … ON CONFLICT … RETURNING (xmax=0) AS is_insert`，第一次 is_insert=t、第二次 f（注意：xmax 技巧只在 RETURNING 返回行上成立，对表做普通 `SELECT (xmax=0)` 恒为 true，不能用来判定）
 - **常见错误**：忘记 `ON CONFLICT` 指定冲突列；`EXCLUDED` 引用错误写成 `VALUES`
 
 ### 练习 6：GROUP BY 严格模式修复 🔴 挑战
@@ -997,9 +1001,9 @@ ORDER BY u.name, o.created_at DESC;
 > PG 中双引号用于标识符，字符串必须用单引号。
 > **解决方案**：`'string'` 而不是 `"string"`。
 
-> [!warning] **易错 7：ON CONFLICT 忘记指定冲突列**
-> PG 的 `ON CONFLICT` 必须显式指定冲突列或约束名，不像 MySQL 自动判断。
-> **解决方案**：`ON CONFLICT (id)` 或 `ON CONFLICT ON CONSTRAINT users_email_key`。
+> [!warning] **易错 7：以为 ON CONFLICT 一律必须指定冲突列（其实是 DO UPDATE 才必须）**
+> `DO UPDATE` 必须指定冲突目标（列或约束名）；`DO NOTHING` 可省略，表示忽略任意唯一/排他（exclusion）约束冲突。
+> **解决方案**：`ON CONFLICT (id) DO UPDATE SET ...` 或 `ON CONFLICT ON CONSTRAINT users_email_key DO UPDATE ...`；只想去重就写裸 `ON CONFLICT DO NOTHING`（v0 造数脚本即此用法）。
 
 ---
 
@@ -1037,7 +1041,7 @@ ORDER BY u.name, o.created_at DESC;
 > 2. **GROUP BY 只写聚合列** → PG 报 `column must appear in the GROUP BY clause`。补全所有非聚合列
 > 3. **字符串用双引号** → PG 双引号是标识符不是字符串。字符串一律用单引号 `'text'`
 > 4. **递归 CTE 忘记 JOIN 条件** → 无限循环。递归部分必须有 `JOIN cte ON c.parent_id = cte.id`
-> 5. **UPSERT 忘记指定冲突列** → ON CONFLICT 报错。写 `ON CONFLICT (col)` 明确指定
+> 5. **UPSERT 忘记指定冲突目标** → 只有 `DO UPDATE` 会报错（需 inference specification 或约束名）；`DO NOTHING` 可省略 target，忽略任意唯一/排他冲突。`DO UPDATE` 写 `ON CONFLICT (col) DO UPDATE ...`
 
 ---
 

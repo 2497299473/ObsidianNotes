@@ -65,14 +65,14 @@ flowchart LR
 | Query Cache | ❌ 没有 | 用应用层缓存（Redis） |
 | `SHOW PROCESSLIST` | ❌ 没有 | `pg_stat_activity` 视图 |
 | 慢查询日志 | ✅ 有（`log_min_duration_statement` 即内置慢查询日志） | 另可用 `pg_stat_statements` 做聚合统计 |
-| `FLUSH PRIVILEGES` | ❌ 不需要 | 角色权限变更即时生效，用 `pg_reload_conf()` |
+| `FLUSH PRIVILEGES` | ❌ 不需要 | 两件事别混：① `GRANT`/`REVOKE` 权限变更即时生效，无需清缓存；② `pg_reload_conf()` 重载的是 `postgresql.conf`/`pg_hba.conf` |
 | `OPTIMIZE TABLE` | ❌ 没有 | `VACUUM` / `ANALYZE` / `pg_repack` |
 | 事件调度器（Event Scheduler） | ✅ 可用 `pg_cron` 扩展 | 安装 `pg_cron` |
 | `mysqldump` | ❌ 没有 | `pg_dump` / `pg_dumpall` |
 | `EXPLAIN FORMAT=JSON` | ❌ 不同格式 | `EXPLAIN (FORMAT JSON)` |
 | 自适应 Hash 索引 | ❌ 没有 | 显式 `USING HASH` 索引 |
 | `FORCE INDEX` | ❌ 没有 | 用 `enable_seqscan = off` 调试（仅开发） |
-| `INSERT DELAYED` | ❌ 没有 | 应用层队列 |
+| `INSERT DELAYED` | ❌ MySQL 5.7 已移除 | 8.0 基线不存在该语法；异步写入用应用层队列 |
 
 ### 1.3 索引与优化差异
 
@@ -87,10 +87,10 @@ flowchart LR
 
 | MySQL 行为 | PostgreSQL 行为 | 迁移注意 |
 |-----------|-----------------|---------|
-| 宽松 GROUP BY（非聚合列可 SELECT） | 严格 GROUP BY | 补全 GROUP BY 或用聚合函数 |
+| 宽松 GROUP BY（仅关闭 ONLY_FULL_GROUP_BY 时；8.0 默认同样严格） | 严格 GROUP BY | 补全 GROUP BY 或用聚合函数 |
 | 隐式类型转换 | 严格类型检查 | 显式转换 `::type` |
 | `LIKE` 不区分大小写（取决于排序规则） | `LIKE` 区分大小写 | 用 `ILIKE` |
-| 空字符串 = NULL（某些上下文） | 空字符串 ≠ NULL | 严格区分 NULL 和 '' |
+| 空字符串在数值上下文当 0（严格模式除外） | 空字符串 ≠ NULL，数值转换直接报错 | MySQL `'' IS NULL` 恒为 0；“空串=NULL”是 Oracle 行为，不是 MySQL |
 | 双引号表示字符串 | 双引号表示标识符 | 字符串用单引号 |
 | `||` 表示逻辑或 | `||` 表示字符串拼接 | 注意语义变化 |
 
@@ -102,7 +102,7 @@ flowchart LR
 
 | PostgreSQL 特性 | MySQL 状态 | 典型应用 |
 |---------------|----------|---------|
-| `JSONB` 二进制 JSON | 有 `JSON` 文本类型但不可高效索引 | 复杂 JSON 索引、半结构化数据 |
+| `JSONB` 二进制 JSON | 有 `JSON` 类型 + 函数索引/多值索引（8.0.13/8.0.17+）；PG 的 GIN 优势在任意路径 `@>`、`?`、`?&` 组合 | 复杂 JSON 索引、半结构化数据 |
 | 原生数组 `INT[]` / `TEXT[]` | 无 | 标签、权限列表 |
 | `TIMESTAMPTZ` 带时区时间 | TIMESTAMP 有时区但范围小（到 2038 年） | 跨时区应用 |
 | `TSTZRANGE` / `INT4RANGE` 范围类型 | 无 | 时间段、版本区间 |
@@ -146,7 +146,7 @@ flowchart LR
 | PostgreSQL 特性 | MySQL 状态 | 典型应用 |
 |---------------|----------|---------|
 | DDL 事务支持 | 无（DDL 隐式提交） | 原子性 Schema 变更 |
-| 咨询锁（Advisory Lock） | 无 | 分布式锁、应用协调 |
+| 咨询锁（Advisory Lock） | 有 GET_LOCK()（会话级、单命名空间、无共享模式），弱于 PG | 分布式锁、应用协调 |
 | Serializable Snapshot Isolation (SSI) | 无 | 无锁串行化 |
 | Repeatable Read 防幻读 | 也防（机制不同）：普通 SELECT 一致性快照读看不到后提交的 INSERT；锁定读靠 next-key 锁 | 更强隔离保证 |
 | `pg_stat_activity` 系统视图 | 有 `SHOW PROCESSLIST` | 会话与锁监控 |
@@ -164,7 +164,7 @@ flowchart LR
 | `pg_trgm` | 无 | 模糊搜索 |
 | `pg_partman` | 手动分区 | 自动分区管理 |
 | `pg_cron` | Event Scheduler | 定时任务 |
-| `pg_repack` | `OPTIMIZE TABLE`（锁表） | 在线表重组 |
+| `pg_repack` | `OPTIMIZE TABLE`（Online DDL，允许并发 DML，但会重建表、耗双倍空间） | 在线表重组 |
 | `postgres_fdw` | Federated（复杂） | 跨库查询 |
 | `TimescaleDB` | 无 | 时序数据库 |
 | `Citus` | 无 | 分布式分片 |
@@ -567,7 +567,7 @@ LIMIT 20 OFFSET 10;
 
 | # | 正面（问题） | 背面（答案） |
 |---|-------------|-------------|
-| F1 | MySQL 有 PG 无（16 项）？ | AUTO_INCREMENT / LIMIT a,b / INSERT IGNORE / ON DUPLICATE KEY / ON UPDATE / Query Cache / SHOW PROCESSLIST / OPTIMIZE TABLE / 存储引擎 / 自适应 Hash / FORCE INDEX / INSERT DELAYED / FIND_IN_SET / IF() / GROUP_CONCAT / DUAL 表 |
+| F1 | MySQL 有 PG 无（16 项，含 5.7 已移除的 INSERT DELAYED）？ | AUTO_INCREMENT / LIMIT a,b / INSERT IGNORE / ON DUPLICATE KEY / ON UPDATE / Query Cache / SHOW PROCESSLIST / OPTIMIZE TABLE / 存储引擎 / 自适应 Hash / FORCE INDEX / INSERT DELAYED（5.7 已移除）/ FIND_IN_SET / IF() / GROUP_CONCAT / DUAL 表 |
 | F2 | PG 有 MySQL 无（20+ 项）？ | JSONB+GIN / 数组类型 / RETURNING / CTE 递归 / 窗口函数 / FILTER / LATERAL JOIN / DISTINCT ON / GENERATE_SERIES / DDL 事务 / Advisory Lock / SSI 隔离 / RLS 行安全 / 物化视图 / 部分索引 / EXCLUDE 约束 / CONCURRENTLY / BRIN·GiST·GIN 索引 / PostGIS / pg_repack / Citus |
 | F3 | 迁移策略 5 种？ | ✅直接 / ⚠️改写 / 🔀替换 / ❌降级 / ⚡增强 |
 | F4 | P0 必须改的项？ | 表结构 / AUTO_INCREMENT / DATETIME / LIMIT / 隐式转换 / ON DUPLICATE KEY / INSERT IGNORE / GROUP BY |

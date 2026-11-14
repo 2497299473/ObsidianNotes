@@ -77,7 +77,7 @@ DELETE FROM server_logs WHERE id % 200 = 0;
 **验收标准**：
 - ✅ pg_repack 扩展安装成功，`SELECT extname` 返回 `pg_repack`
 - ✅ orders 和 server_logs 表上执行了 UPDATE/DELETE，产生死元组
-- **预期输出**：`UPDATE 10000`（约 1 万行受影响）
+- **预期输出**：orders 的 `UPDATE … WHERE status='paid' AND id%10=0` 约 2000 行（v0 中 paid 占多数、再叠 id%10）；server_logs 的 `UPDATE … WHERE id%100=0` 约 1 万行（100万/100）——以实际 WHERE 条件为准
 - **自测方法**：`SELECT n_dead_tup FROM pg_stat_user_tables WHERE relname = 'orders'` 应显示 >0 死元组
 
 ---
@@ -198,8 +198,9 @@ WHERE relname = 'server_logs';
 - **预期输出**：重组后表大小减少 > 15%，死元组降至 0
 - **自测方法**：
   ```sql
-  -- 重组前后对比
-  SELECT pg_size_pretty(pg_relation_size('server_logs')) AS now_size;
+  -- 重组前后对比（server_logs 是分区父表，自身无存储，pg_relation_size(父表) 恒为 0；须汇总各分区）
+  SELECT pg_size_pretty(SUM(pg_relation_size(inhrelid))) AS now_size
+  FROM pg_inherits WHERE inhparent = 'server_logs'::regclass;
   -- 同时在另一个 psql 会话执行 SELECT COUNT(*) FROM server_logs; 应无阻塞
   ```
 
@@ -284,8 +285,12 @@ SELECT tgname, tgrelid::regclass AS on_table
 FROM pg_trigger
 WHERE tgname = 'z_repack_trigger';
 
--- 清理残留（安全操作，不影响原表数据；删除 repack schema 会级联清掉影子表和触发器）
--- DROP SCHEMA IF EXISTS repack CASCADE;
+-- 清理残留（只删影子表/触发器，不影响原表数据）
+-- ⚠️ 不要 DROP SCHEMA repack CASCADE！pg_repack 的扩展对象（repack.version() 等）就装在该 schema，
+--    连 schema 一起删会把扩展打坏。只删残留影子表与触发器：
+-- DROP TABLE IF EXISTS repack.table_<oid> CASCADE;
+-- DROP TRIGGER IF EXISTS z_repack_trigger ON <原表>;
+-- 若要彻底重来：DROP EXTENSION pg_repack; CREATE EXTENSION pg_repack;
 ```
 
 ```sql
@@ -298,8 +303,8 @@ WHERE tgname = 'z_repack_trigger';
 -- 解决：用 postgres 超级用户执行，或授予 pg_repack 角色给 app_user
 
 -- 错误 2：ERROR: relation "repack.table_xxx" already exists
--- 原因：上次 pg_repack 失败在 repack schema 留下了残留
--- 解决：DROP SCHEMA repack CASCADE; 然后重试
+-- 原因：上次 pg_repack 失败在 repack schema 留下了残留影子表
+-- 解决：DROP TABLE IF EXISTS repack.table_<oid> CASCADE; 然后重试（勿 DROP SCHEMA repack CASCADE，会删掉扩展对象）
 
 -- 错误 3：pg_repack hangs during index creation
 -- 原因：表有长事务持有锁，pg_repack 等待锁超时

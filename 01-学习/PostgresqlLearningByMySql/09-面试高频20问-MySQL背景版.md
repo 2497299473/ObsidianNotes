@@ -60,13 +60,13 @@ flowchart TD
 
 ## Q3：PostgreSQL 的 JSONB 和 MySQL 的 JSON 有什么区别？
 
-**先结论**：JSONB 是二进制解析存储，支持 GIN 索引，查询比 MySQL JSON 快 3-10 倍。
+**先结论**：JSONB 是二进制解析存储，支持 GIN 索引，命中 GIN 的检索通常比 MySQL JSON 快数倍（量级参考，随查询形态波动，不是定值）。
 
 **再展开**：
 - PG 的 `JSON` 是文本存储（类似 MySQL），`JSONB` 是二进制解析存储
 - JSONB 支持 `@>`（包含）、`?`（键存在）、`?|`（任一键存在）等操作符
 - JSONB 可创建 GIN 索引，加速任意路径的包含查询
-- MySQL 的 JSON 只能用函数索引（特定路径），无法做 `@>` 类包含查询
+- MySQL 的 JSON 可用函数索引（特定路径）；8.0.17+ 多值索引可优化 JSON_CONTAINS 数组包含，但任意路径 @> 组合仍是 PG GIN 的优势
 
 **生产经验**：99% 场景用 JSONB 而非 JSON；`->>` 提取文本需建表达式索引才能走索引；JSONB 不保留原始格式和键顺序。
 
@@ -146,12 +146,12 @@ flowchart TD
 
 ## Q9：PostgreSQL 的 GROUP BY 和 MySQL 有什么区别？
 
-**先结论**：PG 要求 SELECT 中的非聚合列必须出现在 GROUP BY 中（严格模式），MySQL 有宽松模式。
+**先结论**：PG 要求 SELECT 中的非聚合列必须出现在 GROUP BY 中；MySQL 8.0 默认 `ONLY_FULL_GROUP_BY`，行为与 PG 一致，只有关闭该模式才宽松。
 
 **再展开**：
-- MySQL 宽松模式允许 `SELECT region, salesperson, SUM(amount) ... GROUP BY region`（不报错但 salesperson 值不确定）
+- 仅在关闭 `ONLY_FULL_GROUP_BY` 时，MySQL 才允许 `SELECT region, salesperson, SUM(amount) ... GROUP BY region`（不报错但 salesperson 值不确定）
 - PG 严格模式直接报错 `column must appear in GROUP BY`
-- MySQL 8.0+ 默认开启 `ONLY_FULL_GROUP_BY`，行为与 PG 一致
+- 8.0 默认 `sql_mode` 含 `ONLY_FULL_GROUP_BY`，所以按 PG 的严格写法写在 MySQL 上同样能跑（迁移方向无痛）
 - PG 支持 `GROUPING SETS` / `ROLLUP` / `CUBE` 多维聚合
 
 **生产经验**：迁移前在 MySQL 开启 `ONLY_FULL_GROUP_BY` 提前发现问题；用 `STRING_AGG` 或窗口函数替代宽松 GROUP BY。
@@ -197,7 +197,7 @@ flowchart TD
 - PG: `EXPLAIN (ANALYZE, BUFFERS)` 显示实际执行时间 + 缓存命中/磁盘读取
 - MySQL: `EXPLAIN ANALYZE`（8.0.18+）和 `EXPLAIN FORMAT=JSON`
 - PG 显示 `cost`（估算成本）、`rows`（估算行数）、`actual time`（实际耗时）、`loops`（执行次数）
-- PG 有 `Seq Scan` / `Index Scan` / `Index Only Scan` / `Bitmap Heap Scan` 四种扫描
+- PG 常见有 `Seq Scan` / `Index Scan` / `Index Only Scan` / `Bitmap Heap Scan` 等扫描（还有 Bitmap Index Scan、TID Scan、CTE Scan 等）
 
 **生产经验**：重点看 `Buffers: shared read`（磁盘读，越小越好）和 `Rows Removed by Filter`（过滤掉的行，越多说明索引选择性差）。
 
@@ -330,11 +330,11 @@ SELECT * FROM org_tree;
 
 ## Q21：设计一个高并发订单系统（库存扣减 + 防超卖）
 
-**先结论**：用 PG 的 `UPDATE ... WHERE stock >= qty RETURNING *` 原子扣减 + `SKIP LOCKED` 任务队列实现高并发无超卖，比 MySQL 方案更简洁可靠。
+**先结论**：用 PG 的 `UPDATE ... WHERE stock >= qty RETURNING *` 原子扣减 + `SKIP LOCKED` 任务队列实现高并发无超卖；RETURNING 一步拿到扣减后值比 MySQL 更顺手。
 
 **再展开**：
-- MySQL 方案：`SELECT ... FOR UPDATE` 锁行 → 检查库存 → 扣减 → COMMIT，高并发下锁等待严重
-- PG 方案：`UPDATE products SET stock = stock - qty WHERE id = $1 AND stock >= qty RETURNING *`（原子扣减，无需先 SELECT）
+- MySQL 同样能单语句原子扣减：`UPDATE products SET stock=stock-qty WHERE id=? AND stock>=qty`（看 ROW_COUNT 判是否成功），并非必须 SELECT FOR UPDATE；只是拿扣减后值要再查一次
+- PG 方案：`UPDATE products SET stock = stock - qty WHERE id = $1 AND stock >= qty RETURNING *`（原子扣减 + RETURNING 一步返回扣减后数据）
 - 防超卖：`WHERE stock >= qty` 条件保证不超卖，RETURNING 返回扣减后数据（0 行返回 = 库存不足）
 - 高并发消费：任务队列表 + `SKIP LOCKED` 实现无阻塞消费
 - 部分索引 `WHERE status = 'pending'` 加速队列查询
@@ -389,12 +389,14 @@ CREATE TABLE tenant_orders (
 
 -- 开启行级安全
 ALTER TABLE tenant_orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenant_orders FORCE ROW LEVEL SECURITY;  -- owner 默认绕过 RLS，FORCE 后才对 owner 生效
 
--- 创建策略：只能看到当前会话的租户数据
+-- 创建策略：只能看到当前会话的租户数据（第二参 true：未设置返回 NULL 不报错）
 CREATE POLICY tenant_isolation ON tenant_orders
-    USING (tenant_id = current_setting('app.tenant_id')::INT);
+    USING (tenant_id = current_setting('app.tenant_id', true)::INT);
 
--- 应用层设置当前租户（每个请求开始时）
+-- 应用层设置当前租户（每个请求开始时），用非 owner 角色查询
+SET ROLE app_user;  -- 非 owner、无 BYPASSRLS
 SET app.tenant_id = '42';
 -- 之后所有查询自动过滤 tenant_id = 42，无需手动加 WHERE
 SELECT * FROM tenant_orders;  -- 只返回 tenant_id=42 的行
@@ -514,7 +516,7 @@ flowchart LR
 - `INSERT IGNORE` → `ON CONFLICT DO NOTHING`
 - `GROUP_CONCAT` → `STRING_AGG`
 - `IFNULL` → `COALESCE`
-- `` `反引号` `` → `"双引号"`（PG 标识符）
+- `` `反引号` `` → 直接删除（PG 默认小写折叠）；需保留大小写才用 `"双引号"` 且全程一致，否则制造大小写陷阱
 - `NOW()` → `now()`（PG 不区分，但习惯用小写）
 - `UNIX_TIMESTAMP()` → `EXTRACT(EPOCH FROM now())::BIGINT`（用 `::INT` 会 2038 溢出）
 
@@ -538,7 +540,7 @@ flowchart LR
 |---|-------------|-------------|
 | F1 | Q1 架构最大区别？ | PG 多进程，MySQL 多线程；PG 无可插拔存储引擎 |
 | F2 | Q2 MVCC 区别？ | PG 死元组在数据页（需 VACUUM），MySQL 在 undo log（purge 自动） |
-| F3 | Q3 JSONB 区别？ | JSONB 二进制存储 + GIN 索引，查询快 3-10 倍 |
+| F3 | Q3 JSONB 区别？ | JSONB 二进制存储 + GIN 索引，命中 GIN 的检索通常快数倍 |
 | F4 | Q5 隔离级别区别？ | PG 默认 RC，MySQL 默认 RR；两者 RR 快照读都防幻读，PG 是无锁快照隔离，MySQL 锁定读靠 next-key 锁防 |
 | F5 | Q11 索引类型？ | GIN（JSONB/数组/全文）、GiST（地理）、BRIN（时序） |
 | F6 | Q15 DDL 事务？ | PG DDL 可回滚，MySQL DDL 隐式提交 |

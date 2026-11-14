@@ -74,6 +74,8 @@ CREATE INDEX idx_products_active ON products (name) WHERE is_active = true;
 -- ============================================
 -- Step 3：升级 orders 表（使用 ENUM 状态）
 -- ============================================
+-- ⚠️ 注意：v1 刚建好并灌了数据的 orders 表会连数据一起丢掉，仅适用于教学重建
+-- （想保留数据请用 ALTER TABLE 逐列调整，而不是 DROP + CREATE）
 DROP TABLE IF EXISTS orders;
 CREATE TABLE orders (
     id SERIAL PRIMARY KEY,
@@ -182,6 +184,16 @@ SELECT name, price, updated_at FROM products WHERE name = 'iPhone 15';
 - [ ] CHECK 约束生效（插入负数 stock 会报错）
 - [ ] 触发器自动更新 updated_at
 - [ ] UPSERT 幂等写入正确区分插入和更新
+
+---
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 6 个任务全部勾完；`\d products` 能看到 `specs jsonb`、`tags text[]`、`status product_status`，以及 `price > 0`、`stock >= 0` 两条 CHECK |
+| 🟡 进阶 | `EXPLAIN SELECT * FROM products WHERE specs @> '{"brand":"Apple"}'` 出现 `Bitmap Index Scan on idx_products_specs`；插一条 `stock = -1` 被 CHECK 拒绝，并复述报错里的约束名 |
+| 🔴 挑战 | 把 Step 7 的 UPSERT 连跑两遍：因 `iPhone 15` 已在 Step 5 存在，两次都是 `is_insert=false`、`stock` 从 100 累加到 250 再到 400；把 VALUES 换成不存在的 `iPhone 16` 才得到 `is_insert=true`，并能解释 `(xmax = 0)` 为什么只在 `INSERT … RETURNING` 里有效 |
 
 ---
 

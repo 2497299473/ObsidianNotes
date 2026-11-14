@@ -89,12 +89,14 @@ volumes:
 CREATE EXTENSION IF NOT EXISTS citus;
 
 -- 注册 Worker 节点（citus_add_node：节点名 + 端口）
-SELECT citus_add_node('worker_1', 5433);
-SELECT citus_add_node('worker_2', 5434);
+-- ★ 容器网络内 worker 监听 5432（compose 的 5433:5432 只是宿主机映射，容器内用服务名直连走 5432）
+SELECT citus_add_node('worker_1', 5432);
+SELECT citus_add_node('worker_2', 5432);
 
 -- 验证集群状态
 SELECT * FROM citus_get_active_worker_nodes();
--- 预期输出：2 行（worker_1:5433, worker_2:5434）
+-- 预期输出：2 行（worker_1:5432, worker_2:5432）
+-- 验收：SELECT nodename, nodeport, isactive FROM pg_dist_node; 要求 isactive=t
 
 -- 查看集群信息
 SELECT * FROM pg_dist_node;
@@ -103,7 +105,7 @@ SELECT * FROM pg_dist_node;
 **验收标准**：
 - ✅ Docker Compose 启动 3 个容器（coordinator + 2 worker）
 - ✅ `citus_get_active_worker_nodes()` 返回 2 行
-- **预期输出**：`node_name | node_port | isactive` 两行均为 true
+- **预期输出**：`citus_get_active_worker_nodes()` 返回 `node_name | node_port` 两列共 2 行（该函数不返回 isactive；要 isactive 请查 pg_dist_node）
 - **自测方法**：`docker ps` 应显示 3 个 citusdata/citus 容器
 
 ---
@@ -136,12 +138,11 @@ ALTER TABLE order_items ADD COLUMN user_id BIGINT;
 UPDATE order_items oi SET user_id = o.user_id FROM orders o WHERE o.id = oi.order_id;
 ALTER TABLE order_items ALTER COLUMN user_id SET NOT NULL;
 
--- v0 数据中同一 order_id 可能有多行明细，(user_id, order_id) 做主键前先去重（每单保留一行）
-DELETE FROM order_items a
-USING order_items b
-WHERE a.order_id = b.order_id AND a.id > b.id;
-
-ALTER TABLE order_items ADD PRIMARY KEY (user_id, order_id);
+-- 主键必须包含分布列 user_id；用 (user_id, id) 即可（id 已是 identity 唯一），
+-- 不必牺牲“一单多明细”语义去重成 (user_id, order_id)
+ALTER TABLE order_items ADD PRIMARY KEY (user_id, id);
+-- 外键引用 orders 的含分布列主键：FOREIGN KEY (user_id, order_id) REFERENCES orders(user_id, id)
+-- 若需 (user_id, order_id) 组合查询性能，另建普通索引即可（不必唯一）
 
 -- ============================================
 -- 2.2 将 users / products 设为参考表（全量复制到每个节点）
@@ -300,10 +301,11 @@ FROM generate_series(1, 1000) AS n;
 
 -- 验证各分片行数（shardid/logicalrelid 在 pg_dist_shard 上；pg_dist_partition
 -- 每表只有 1 行元数据且没有 shardid 列，分片计数应基于 pg_dist_shard）
-SELECT s.shardid, p.placementid, p.nodename, p.nodeport,
+SELECT s.shardid, p.placementid, n.nodename, n.nodeport,
        (SELECT COUNT(*) FROM pg_dist_shard WHERE logicalrelid = 'orders'::regclass) AS shard_count
 FROM pg_dist_shard s
 JOIN pg_dist_placement p ON p.shardid = s.shardid
+JOIN pg_dist_node n ON n.groupid = p.groupid AND n.noderole = 'primary'
 WHERE s.logicalrelid = 'orders'::regclass
 LIMIT 5;
 ```
@@ -314,9 +316,11 @@ LIMIT 5;
 -- ============================================
 
 -- 查看当前分片分布（每个 Worker 上有多少分片）
-SELECT nodename, nodeport, COUNT(*) AS shard_count
-FROM pg_dist_placement
-GROUP BY nodename, nodeport;
+-- pg_dist_placement 没有 nodename/nodeport 列，需 JOIN pg_dist_node（按 groupid）
+SELECT n.nodename, n.nodeport, COUNT(*) AS shard_count
+FROM pg_dist_placement p
+JOIN pg_dist_node n ON n.groupid = p.groupid AND n.noderole = 'primary'
+GROUP BY n.nodename, n.nodeport;
 -- 预期：worker_1 和 worker_2 各约 16 个分片（32 总分片）
 
 -- 假设新增 worker_3（端口 5435）
@@ -326,8 +330,9 @@ GROUP BY nodename, nodeport;
 -- SELECT rebalance_table_shards();
 
 -- 查看再平衡后分布
--- SELECT nodename, nodeport, COUNT(*) AS shard_count
--- FROM pg_dist_placement GROUP BY nodename, nodeport;
+-- SELECT n.nodename, n.nodeport, COUNT(*) AS shard_count
+-- FROM pg_dist_placement p JOIN pg_dist_node n ON n.groupid = p.groupid AND n.noderole='primary'
+-- GROUP BY n.nodename, n.nodeport;
 -- 预期：3 个 Worker 各约 10-11 个分片
 ```
 
@@ -356,21 +361,26 @@ GROUP BY nodename, nodeport;
 SELECT
     s.logicalrelid::text AS table_name,
     s.shardid,
-    p.nodename,
-    p.nodeport,
+    n.nodename,
+    n.nodeport,
     p.shardstate
 FROM pg_dist_shard s
 JOIN pg_dist_placement p ON p.shardid = s.shardid
+JOIN pg_dist_node n ON n.groupid = p.groupid AND n.noderole = 'primary'
 ORDER BY s.logicalrelid, s.shardid;
 
 -- shardstate: 1=正常, 3=invalid（失效）；完整枚举以 Citus 官方文档为准
 
--- 查看查询执行统计
+-- 查看查询执行统计（citus_stat_activity 是 pg_stat_activity 的超集，
+-- 额外含 global_pid / nodeid / is_worker_query；只看分布式查询用 citus_dist_stat_activity）
 SELECT * FROM citus_stat_activity;
--- 类似 pg_stat_activity 但显示分布式查询
 
--- 查看各节点磁盘使用
-SELECT * FROM citus_remote_disk_usage;
+-- 查看各表的分片磁盘占用（Citus 没有 citus_remote_disk_usage 这类全局视图，
+-- 按表聚合 citus_shards.shard_size 即可；单表也可用 citus_relation_size('表名')）
+SELECT table_name, pg_size_pretty(sum(shard_size)) AS total_size, count(*) AS shard_cnt
+FROM citus_shards
+GROUP BY table_name
+ORDER BY sum(shard_size) DESC;
 ```
 
 ```sql
@@ -389,17 +399,21 @@ SELECT * FROM citus_remote_disk_usage;
 -- 2. 或使用 Citus MX 多租户副本
 
 -- 场景 3：移除故障节点（需先转移分片）
--- SELECT citus_remove_node('worker_2', 5434);
+-- SELECT citus_remove_node('worker_2', 5432);
 -- 此操作会先将 worker_2 上的分片转移到其他节点，然后移除
 
 -- 场景 4：查询超时处理
-SET citus.task_execution_timeout TO '30s';  -- 单分片查询超时
-SET citus.operation_timeout TO '10s';       -- 连接超时
+-- 查询超时用 PG 原生 statement_timeout；连接超时用 citus.node_connection_timeout
+-- （注意：Citus 没有 citus.task_execution_timeout / citus.operation_timeout 这两个 GUC）
+SET statement_timeout = '30s';                 -- 单条查询/单分片任务超时
+SET citus.node_connection_timeout = 10000;     -- 单位毫秒，即 10s
 ```
 
 ```sql
 -- ============================================
 -- 5.3 Citus 常见错误速查
+-- 注：下列为常见错误类型示意，版本不同报错文本可能不同（Citus 12+ 已支持多数
+-- INSERT…SELECT 与共置写入），以实际报错为准
 -- ============================================
 
 -- 错误 1：ERROR: cannot execute INSERT ... SELECT on a distributed table

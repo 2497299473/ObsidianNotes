@@ -113,8 +113,8 @@ sequenceDiagram
 ### 1.5 安装与配置
 
 ```bash
-# 1. 安装 pg_repack（Ubuntu/Debian）
-sudo apt-get install postgresql-14-pg-repack
+# 1. 安装 pg_repack（Ubuntu/Debian）——包名随 PG 大版本走：postgresql-16-repack / postgresql-17-repack
+sudo apt-get install postgresql-14-repack
 
 # 2. 安装 pg_repack（CentOS/RHEL）
 sudo yum install pg_repack_14
@@ -244,9 +244,9 @@ psql -d mydb -c "SELECT pg_size_pretty(pg_total_relation_size('products_test'));
 pg_repack -d mydb -t public.products_test -j 4
 # 预期输出：
 #   INFO: repacking table "public.products_test"
-#   LOG: (query) CREATE TABLE repack.repack_table_16384 ...
-#   LOG: (query) CREATE TRIGGER repack_trigger ...
-#   LOG: (query) INSERT INTO repack.repack_table_16384 SELECT * FROM public.products_test
+#   LOG: (query) CREATE TABLE repack.table_16384 ...   -- 影子表名 repack.table_<oid>，日志为示意
+#   LOG: (query) CREATE TRIGGER z_repack_trigger ...
+#   LOG: (query) INSERT INTO repack.table_16384 SELECT * FROM public.products_test
 #   INFO: finished repacking table "public.products_test"
 
 # 3. 验证重组后大小
@@ -378,7 +378,7 @@ flowchart TD
 
 ```bash
 # 1. 安装 Citus（Ubuntu/Debian）——每个节点都需要
-sudo apt-get install postgresql-14-citus
+sudo apt-get install postgresql-14-citus-12.1   # 包名含 Citus 次版本号，随仓库实际版本变（如 -13.0）；也可直接用 docker 镜像 citusdata/citus
 
 # 2. 在 postgresql.conf 中加载扩展
 echo "shared_preload_libraries = 'citus'" | sudo tee -a /etc/postgresql/14/main/postgresql.conf
@@ -619,7 +619,7 @@ SELECT nodename, nodeport, count(*) AS shard_count,
        pg_size_pretty(sum(shard_size)) AS total_size
 FROM citus_shards
 GROUP BY nodename, nodeport
-ORDER BY total_size DESC;
+ORDER BY sum(shard_size) DESC;  -- 按数值排，不能按 pg_size_pretty 的 text 排
 
 -- 2. 添加新 Worker 节点
 SELECT citus_add_node('192.168.1.103', 5432);
@@ -632,7 +632,7 @@ SELECT nodename, nodeport, count(*) AS shard_count,
        pg_size_pretty(sum(shard_size)) AS total_size
 FROM citus_shards
 GROUP BY nodename, nodeport
-ORDER BY total_size DESC;
+ORDER BY sum(shard_size) DESC;
 -- 预期输出：3 个 Worker 分片均匀分布
 ```
 
@@ -791,7 +791,7 @@ SELECT rebalance_table_shards('shop_orders');
 | 步骤 | MySQL 习惯 | PostgreSQL 做法 |
 |------|------------|-----------------|
 | 大表 DDL | `pt-online-schema-change` | `pg_repack` / `REINDEX CONCURRENTLY` |
-| 膨胀监控 | 无（InnoDB 不膨胀） | 监控 `pg_stat_user_tables.n_dead_tup` |
+| 膨胀监控 | 无死元组概念（页内碎片需 `OPTIMIZE TABLE` 主动整理） | 监控 `pg_stat_user_tables.n_dead_tup` |
 | 水平扩展 | 分库分表 / Vitess | `Citus` 分布式表 |
 | 分布式主键 | 全局 ID 生成器 | 分片键必须包含在主键中 |
 | 扩容 | 重新分片 | `citus_add_node` + `rebalance_table_shards` |
