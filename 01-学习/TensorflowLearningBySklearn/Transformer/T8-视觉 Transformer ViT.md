@@ -267,7 +267,7 @@ flowchart TD
     end
 
     subgraph "Swin（窗口注意力）"
-        S1["只在窗口内关注<br/>O(M²×n/M²) 复杂度"]
+        S1["只在窗口内关注<br/>O(n·M²) 复杂度<br/>n=patch 数，M=窗口边长"]
         S2["窗口滑动 → 跨窗口信息<br/>✅ 可处理大图像"]
     end
 ```
@@ -287,12 +287,16 @@ class WindowAttention(tf.keras.layers.Layer):
 
     def call(self, x):
         # x: (batch, H, W, C)
-        batch, H, W, C = x.shape
+        # 图模式下 batch 常为 None，不能直接 `batch, H, W, C = x.shape` 解包：
+        # 那样 reshape 会拿到 None 而报错。统一用动态形状。
+        shape = tf.shape(x)
+        batch, H, W, C = shape[0], shape[1], shape[2], shape[3]
+        n_h = H // self.window_size
+        n_w = W // self.window_size
         # 把图像切成 window_size×window_size 的窗口
-        # 在每个窗口内做 Self-Attention
         x_windows = tf.reshape(x, [
-            batch, H // self.window_size, self.window_size,
-            W // self.window_size, self.window_size, C
+            batch, n_h, self.window_size,
+            n_w, self.window_size, C
         ])
         # 合并窗口维度到 batch 维度
         x_windows = tf.transpose(x_windows, [0, 1, 3, 2, 4, 5])
@@ -301,7 +305,7 @@ class WindowAttention(tf.keras.layers.Layer):
         attn_out = self.mha(x_windows, x_windows, x_windows)
         # 恢复原始形状
         attn_out = tf.reshape(attn_out, [
-            batch, H // self.window_size, W // self.window_size,
+            batch, n_h, n_w,
             self.window_size, self.window_size, C
         ])
         attn_out = tf.transpose(attn_out, [0, 1, 3, 2, 4, 5])
@@ -309,7 +313,7 @@ class WindowAttention(tf.keras.layers.Layer):
 ```
 
 > [!tip] Swin 的两个关键设计
-> 1. **窗口注意力**：只在 7×7 窗口内做 Attention，复杂度从 O(n²) 降到 O(n)
+> 1. **窗口注意力**：只在 7×7 窗口内做 Attention，复杂度从 O(n²) 降到 O(n·M²)（n=patch 总数，M=窗口边长；总代价 = n/M² 个窗口 × 每窗口 O(M⁴)）
 > 2. **移位窗口**：交替层把窗口偏移半个窗口，实现跨窗口信息传递
 >
 > Swin 是分层架构（像 CNN 一样有多个 stage，逐步降分辨率），适合检测/分割等密集预测任务。
@@ -319,14 +323,14 @@ class WindowAttention(tf.keras.layers.Layer):
 ## 四、用 HuggingFace 加载预训练 ViT
 
 ```python
-from transformers import TFViTForImageClassification, ViTFeatureExtractor
+from transformers import TFViTForImageClassification, ViTImageProcessor
 import tensorflow as tf
 
 # ============================================
 # 加载预训练 ViT（ImageNet-21k 预训练）
 # ============================================
 model_name = "google/vit-base-patch16-224"
-feature_extractor = ViTFeatureExtractor.from_pretrained(model_name)
+feature_extractor = ViTImageProcessor.from_pretrained(model_name)  # 旧名 ViTFeatureExtractor 已废弃
 model = TFViTForImageClassification.from_pretrained(model_name)
 
 # 推理
@@ -476,12 +480,12 @@ vit.fit(x_train, y_train, validation_data=(x_test, y_test),
 <summary>📝 参考答案</summary>
 
 ```python
-from transformers import TFViTForImageClassification, ViTFeatureExtractor
+from transformers import TFViTForImageClassification, ViTImageProcessor
 from PIL import Image
 import numpy as np
 
 # 加载 ViT
-feature_extractor = ViTFeatureExtractor.from_pretrained("google/vit-base-patch16-224")
+feature_extractor = ViTImageProcessor.from_pretrained("google/vit-base-patch16-224")
 vit_model = TFViTForImageClassification.from_pretrained("google/vit-base-patch16-224")
 
 # 加载图片
@@ -526,6 +530,16 @@ for class_id, name, score in tf.keras.applications.resnet.decode_predictions(res
 | 选型决策 | 小数据→CNN，大数据→ViT，检测/分割→Swin |
 
 **下一篇**：[[T9-Transformer 项目实战]] — 把 T1-T8 串起来，做端到端项目。
+
+---
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | `PatchEmbedding(patch_size=16, embed_dim=768)` 跑一次，输出 `(2, 196, 768)`（224/16=14，14×14=196） |
+| 🟡 进阶 | 把微型 ViT 用在 32×32 CIFAR-10（patch 8 → 16 个 token）跑几 epoch，报出 acc 并与 09 篇 CNN 的基线对比 |
+| 🔴 挑战 | 同数据量下对比 ViT 与 ResNet50，报 acc 差并解释归纳偏置：为什么小数据下 CNN 占优、ViT 需要更多数据或更强增强 |
 
 ---
 

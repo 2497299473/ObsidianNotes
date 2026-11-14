@@ -277,8 +277,8 @@ model = tf.keras.Sequential([
 ```
 
 > [!tip] Dropout 工作机制
-> - **训练时**：每次前向传播随机禁用一部分神经元（按比例），等效于训练多个"子网络"
-> - **推理时**：所有神经元都工作（但权重按 dropout rate 缩放）
+> - **训练时**：每次前向传播随机禁用一部分神经元（按比例），等效于训练多个"子网络"；保留的神经元输出乘 `1/(1-p)` 放大（inverted dropout）
+> - **推理时**：所有神经元都工作，权重**不缩放**（放大已经提前在训练阶段做完了，所以推理就是普通的恒等前传）
 > - **隐式集成**：Dropout 近似 Bagging，是深度学习中最重要的正则化手段之一
 
 > [!tip] Dropout 率经验法则
@@ -526,7 +526,13 @@ class DenseWithL2(tf.keras.layers.Layer):
 
     def get_config(self):
         config = super().get_config()
-        config.update({'units': self.units, 'activation': 'relu', 'l2_rate': self.l2_rate})
+        # 必须序列化 self.activation 本体，不能硬编码 'relu'：
+        # 否则用 activation='tanh' 建的层存盘/重建后会静默变回 ReLU
+        config.update({
+            'units': self.units,
+            'activation': tf.keras.activations.serialize(self.activation),
+            'l2_rate': self.l2_rate,
+        })
         return config
 
 # 使用

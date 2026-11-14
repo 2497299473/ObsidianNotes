@@ -325,8 +325,15 @@ test_encodings = tokenizer(test_texts, truncation=True, padding=True,
 # ============================================
 # 步骤 3：构建 tf.data.Dataset
 # ============================================
+# 从训练集再切 10% 做 val：test_ds 只在最后 evaluate 用一次。
+# 否则 EarlyStopping 会拿测试集挑模型，报出的 acc 会系统偏高。
+n_val = max(1, len(train_labels) // 10)
+val_ds = tf.data.Dataset.from_tensor_slices((
+    {k: v[:n_val] for k, v in dict(train_encodings).items()}, train_labels[:n_val]
+)).batch(16).prefetch(tf.data.AUTOTUNE)
+
 train_ds = tf.data.Dataset.from_tensor_slices((
-    dict(train_encodings), train_labels
+    {k: v[n_val:] for k, v in dict(train_encodings).items()}, train_labels[n_val:]
 )).shuffle(1000).batch(16).prefetch(tf.data.AUTOTUNE)
 
 test_ds = tf.data.Dataset.from_tensor_slices((
@@ -345,7 +352,7 @@ model.compile(optimizer=optimizer, loss=loss, metrics=['accuracy'])
 # ============================================
 history = model.fit(
     train_ds,
-    validation_data=test_ds,
+    validation_data=val_ds,  # 不是 test_ds：测试集只在最后 evaluate 一次
     epochs=3,
     callbacks=[tf.keras.callbacks.EarlyStopping(patience=1, restore_best_weights=True)]
 )
@@ -455,14 +462,21 @@ for epoch in range(3):
 > 显存不够时，可以累积多个小 batch 的梯度，等效大 batch 训练：
 > ```python
 > accumulation_steps = 4
-> for i, batch in enumerate(train_ds):
+> accum_grads = [tf.zeros_like(v) for v in model.trainable_variables]
+>
+> for step, batch in enumerate(train_ds):
 >     with tf.GradientTape() as tape:
 >         outputs = model(batch[0], training=True)
->         loss = loss_fn(batch[1], outputs.logits) / accumulation_steps
->     gradients = tape.gradient(loss, model.trainable_variables)
->     # 累积梯度，每 accumulation_steps 步才 apply
+>         loss = loss_fn(batch[1], outputs.logits)
+>     grads = tape.gradient(loss, model.trainable_variables)
+>     # 先除再累加：这样累加满 N 步得到的就是大 batch 的平均梯度
+>     accum_grads = [acc + g / accumulation_steps
+>                    for acc, g in zip(accum_grads, grads)]
+>     if (step + 1) % accumulation_steps == 0:
+>         optimizer.apply_gradients(zip(accum_grads, model.trainable_variables))
+>         accum_grads = [tf.zeros_like(v) for v in model.trainable_variables]
 > ```
-> 详见分布式训练路径 D5。
+> 末尾不足 `accumulation_steps` 的那批梯度会被丢弃（也可最后补一次 apply）。单机多卡下的完整实现见 [[D5-大模型策略]] §三，注意别在 `apply_gradients` 前再做一次 `all_reduce`（D4 有专门警告）。
 
 ---
 
@@ -483,7 +497,7 @@ loaded_tokenizer = AutoTokenizer.from_pretrained("./my_model")
 ### 7.2 转换为 SavedModel（用于 TF Serving）
 
 ```python
-model.save("saved_model")
+model.save("saved_model")  # 仅 Keras 2（TF≤2.15）；Keras 3 用 model.export("saved_model")
 loaded = tf.keras.models.load_model("saved_model")
 ```
 
@@ -632,6 +646,16 @@ print(f"可训练参数: {trainable:,} / {total:,} = {trainable/total:.1%}")
 **Phase 2 完结！** 你现在能用 HuggingFace 加载和微调任何预训练模型。
 
 **下一篇**：[[T8-视觉 Transformer ViT]] — Transformer 不只能处理文本，还能处理图像。
+
+---
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | `pipeline("sentiment-analysis")` 对 5 条句子分类，报出每条 label 与 score，并说出这个 Pipeline 默认加载了什么模型 |
+| 🟡 进阶 | 用 `TFAutoModelForSequenceClassification` + `distilbert-base-uncased` 微调 IMDB（2000 条 / 3 epoch），报出独立 val 集与 test 集两个 acc，说明二者为何不该相同 |
+| 🔴 挑战 | 冻结主干只训分类头，报出可训练参数占比（约 1/66 的量级），并说明它为什么**不是** LoRA（没有低秩分解、没有旁路矩阵） |
 
 ---
 

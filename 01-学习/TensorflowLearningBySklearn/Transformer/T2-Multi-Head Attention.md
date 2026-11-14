@@ -726,5 +726,15 @@ print(f"位置 3 差异: {diff[0, 3].max():.6f}")  # > 0（受影响）
 
 ---
 
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 自研 MHA 跑通，`weights.shape` 输出 `(2, 8, 10, 10)`（batch=2、头=8、序列=10） |
+| 🟡 进阶 | 把自定义 mask（1=可见）直接喂给内置 `MultiHeadAttention`，观察到「语义反向」的结果，再用 `1 - mask` 修正并说清两套约定为何相反 |
+| 🔴 挑战 | 实现 GQA（8 个 Q 头 / 2 个 KV 头），算出 KV cache 降为 1/4，并说明 `tf.repeat` 展开 KV 时头与头的对齐顺序 |
+
+---
+
 *前置：[[T1-Self-Attention 深度原理]]*
 *后续：[[T3-Positional Encoding]]*

@@ -194,10 +194,12 @@ def make_dataset():
         tf.data.experimental.AutoShardPolicy.OFF)
     dataset = dataset.with_options(options)
 
-    # 全局 batch_size 要覆盖所有机器的所有 GPU
-    per_worker_batch = 64
-    global_batch = per_worker_batch * strategy.num_replicas_in_sync
-    dataset = dataset.shuffle(10000).batch(global_batch).prefetch(tf.data.AUTOTUNE)
+    # 手动 shard 后 batch() 作用在每台 worker 自己的分片上，是 per-worker 语义：
+    # per-worker batch = per_gpu_batch × 本机 GPU 数（不是集群总副本数，否则多乘一次 worker 数）
+    per_gpu_batch = 64
+    local_gpus = 4  # 本机 GPU 数（按实际填；多机下 num_replicas_in_sync 可能是集群总数，勿直接用）
+    per_worker_batch = per_gpu_batch * local_gpus
+    dataset = dataset.shuffle(10000).batch(per_worker_batch).prefetch(tf.data.AUTOTUNE)
     return dataset
 
 # 4. 训练
@@ -494,6 +496,16 @@ model.fit(train_dataset, epochs=10, validation_data=val_dataset)
 | 6 | 无容错机制 | 配置 BackupAndRestore 回调 |
 | 7 | steps_per_execution 传给 fit（应传给 compile） | 在 compile 中设 10-50：单次 tf.function 调用跑多步，降低每步 host 开销 |
 | 8 | 多机用错 IP | 确保用内网 IP，不用 localhost |
+
+---
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 在本机用两个端口起 2 个 worker（`TF_CONFIG` 各指不同 `task.index`）跑通，两边都能打印自己的 `task.type/index` |
+| 🟡 进阶 | 故意把 `task.index` 写重或越界，贴出报错原文，再改回来确认恢复（说明 TF 是怎么校验集群成员的） |
+| 🔴 挑战 | 手动 `shard` 与 `AutoShardPolicy.AUTO` 各跑一次，用 `step` 数 × `global_batch` 证明数据没丢、没重复 |
 
 ---
 

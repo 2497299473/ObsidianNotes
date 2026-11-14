@@ -43,6 +43,8 @@ y_test = y_test.flatten()
 
 # tf.data 管道
 train_ds = tf.data.Dataset.from_tensor_slices((x_train, y_train)).shuffle(50000).batch(64).prefetch(tf.data.AUTOTUNE)
+# 从训练集切 10% 作验证集（早停用），测试集只在最后 evaluate 一次，避免泄漏
+val_ds = tf.data.Dataset.from_tensor_slices((x_train[:5000], y_train[:5000])).batch(64).prefetch(tf.data.AUTOTUNE)
 test_ds = tf.data.Dataset.from_tensor_slices((x_test, y_test)).batch(64).prefetch(tf.data.AUTOTUNE)
 ```
 
@@ -78,7 +80,7 @@ model = tf.keras.Sequential([
 
 ```python
 model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-model.fit(train_ds, epochs=50, validation_data=test_ds,
+model.fit(train_ds, epochs=50, validation_data=val_ds,
     callbacks=[
         tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True),
         tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3, min_lr=1e-6),
@@ -93,7 +95,7 @@ print(f"测试集准确率: {acc:.4f}")
 
 ```python
 # --- SavedModel 格式（TF Serving 用） ---
-model.save('v5_saved_model/')
+model.save('v5_saved_model/')  # 仅 Keras 2（TF≤2.15）；Keras 3 用 model.export('v5_saved_model/')
 
 # --- TFLite 量化（移动端用） ---
 converter = tf.lite.TFLiteConverter.from_saved_model('v5_saved_model/')
@@ -147,6 +149,16 @@ print(f"TFLite 预测: {tflite_pred}, 真实: {y_test[0]}")
 | 保存 | `model.save()` SavedModel | 10 |
 | 部署 | `TFLiteConverter` 量化 | 10 |
 | 推理验证 | `load_model` + TFLite Interpreter | 10 |
+
+---
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 保存 → 加载 → TFLite 三步都跑通，报出 `v5_model.tflite` 体积与 SavedModel 目录体积之比 |
+| 🟡 进阶 | 说清 dynamic-range 量化后体积比例（对照验收线「< 原始 50%」），并指出哪些算子会被量化、`GlobalAveragePooling2D`/`Softmax` 这类是否受影响 |
+| 🔴 挑战 | 用同一张图对比 SavedModel 与 TFLite 的输出概率（差值 < 1e-2），解释差异来自量化误差，并说明怎么验证「数据增强层推理时已自动关闭」 |
 
 ---
 

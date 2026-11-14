@@ -84,7 +84,9 @@ from datasets import load_dataset
 # Step 1: 加载数据
 # ============================================
 dataset = load_dataset("imdb", split="train[:3000]")
+# 先切出独立测试集（只在最后 evaluate 一次），再从剩余部分切验证集（早停用），避免泄漏
 dataset = dataset.train_test_split(test_size=0.2, seed=42)
+train_val = dataset["train"].train_test_split(test_size=0.1, seed=42)
 
 # ============================================
 # Step 2: 加载模型和 Tokenizer（微调五步法 Step 1-2）
@@ -104,7 +106,8 @@ def tokenize_fn(examples):
         padding="max_length", max_length=256
     )
 
-train_tokenized = dataset["train"].map(tokenize_fn, batched=True)
+train_tokenized = train_val["train"].map(tokenize_fn, batched=True)
+val_tokenized = train_val["test"].map(tokenize_fn, batched=True)
 test_tokenized = dataset["test"].map(tokenize_fn, batched=True)
 
 # 转为 TF Dataset
@@ -112,6 +115,11 @@ train_ds = train_tokenized.to_tf_dataset(
     columns=["input_ids", "attention_mask"],
     label_cols=["label"],
     batch_size=16, shuffle=True
+)
+val_ds = val_tokenized.to_tf_dataset(
+    columns=["input_ids", "attention_mask"],
+    label_cols=["label"],
+    batch_size=16, shuffle=False
 )
 test_ds = test_tokenized.to_tf_dataset(
     columns=["input_ids", "attention_mask"],
@@ -130,7 +138,7 @@ model.compile(
 
 history = model.fit(
     train_ds,
-    validation_data=test_ds,
+    validation_data=val_ds,
     epochs=3,
     callbacks=[
         tf.keras.callbacks.EarlyStopping(
@@ -221,7 +229,7 @@ for text in test_texts:
 """
 import tensorflow as tf
 import tensorflow_datasets as tfds
-from transformers import TFViTModel, ViTFeatureExtractor
+from transformers import TFViTModel  # 预处理已在 preprocess() 里手写 /127.5-1，无需 ViTImageProcessor
 import numpy as np
 
 # ============================================
@@ -232,10 +240,13 @@ import numpy as np
     with_info=True, as_supervised=True
 )
 num_classes = info.features["label"].num_classes  # 5
+# 再从训练部分切 10% 作验证集（早停/调参用），test_ds 只最后 evaluate 一次
+train_ds, val_ds = tf.keras.utils.split_dataset(train_ds, left_size=0.9, seed=42)
 
-# 预处理
+# 预处理（ViT 必需归一化到 [-1,1]，与预训练分布一致，否则冻结阶段准确率远低于验收线）
 def preprocess(image, label):
     image = tf.image.resize(image, (224, 224))
+    image = image / 127.5 - 1.0
     return image, label
 
 train_ds = train_ds.map(preprocess).batch(32).prefetch(tf.data.AUTOTUNE)
@@ -252,7 +263,17 @@ base_model.trainable = False  # 先冻结骨干
 # ============================================
 inputs = tf.keras.Input((224, 224, 3))
 # ViT 内部会做 Patch Embedding + Transformer Encoder
-x = base_model(inputs).pooler_output  # [CLS] 输出 (768维)
+# 注意：TFViTModel.call 返回 dataclass（TFBaseModelOutputWithPooling），不能在 Functional API 里
+# 对符号张量直接取 .pooler_output。用自定义 Layer 包装，只返回 pooler_output 张量：
+class ViTBackbone(tf.keras.layers.Layer):
+    def __init__(self, base, **kw):
+        super().__init__(**kw)
+        self.base = base
+    def call(self, x):
+        # ViT 期望 (batch, channels, H, W)，TF 图像是 (batch, H, W, C)，需转置
+        x = tf.transpose(x, [0, 3, 1, 2])
+        return self.base(pixel_values=x).pooler_output
+x = ViTBackbone(base_model)(inputs)  # [CLS] 输出 (768维)
 x = tf.keras.layers.Dropout(0.3)(x)
 outputs = tf.keras.layers.Dense(num_classes, activation="softmax")(x)
 model = tf.keras.Model(inputs, outputs)
@@ -265,7 +286,7 @@ model.compile(
     loss="sparse_categorical_crossentropy",
     metrics=["accuracy"]
 )
-model.fit(train_ds, validation_data=test_ds, epochs=5)
+model.fit(train_ds, validation_data=val_ds, epochs=5)
 
 # ============================================
 # Step 5: 解冻骨干微调（阶段 2）
@@ -276,7 +297,7 @@ model.compile(
     loss="sparse_categorical_crossentropy",
     metrics=["accuracy"]
 )
-model.fit(train_ds, validation_data=test_ds, epochs=3)
+model.fit(train_ds, validation_data=val_ds, epochs=3)
 
 # ============================================
 # Step 6: 评估与推理
@@ -349,7 +370,9 @@ from datasets import load_dataset
 # Step 1: 加载数据（XSum 摘要数据集，取子集）
 # ============================================
 dataset = load_dataset("xsum", split="train[:2000]")
+# 先切独立测试集（只最后 evaluate 一次），再从剩余切验证集（避免泄漏）
 dataset = dataset.train_test_split(test_size=0.2, seed=42)
+train_val = dataset["train"].train_test_split(test_size=0.1, seed=42)
 
 # ============================================
 # Step 2: 加载模型和 Tokenizer
@@ -383,7 +406,8 @@ def preprocess_fn(examples):
     ]
     return model_inputs
 
-train_tokenized = dataset["train"].map(preprocess_fn, batched=True)
+train_tokenized = train_val["train"].map(preprocess_fn, batched=True)
+val_tokenized = train_val["test"].map(preprocess_fn, batched=True)
 test_tokenized = dataset["test"].map(preprocess_fn, batched=True)
 
 # 注意：Seq2Seq 模型必须有 decoder 输入——把 labels 放进 columns，
@@ -395,6 +419,10 @@ train_ds = train_tokenized.to_tf_dataset(
     columns=["input_ids", "attention_mask", "labels"],
     batch_size=8, shuffle=True
 )
+val_ds = val_tokenized.to_tf_dataset(
+    columns=["input_ids", "attention_mask", "labels"],
+    batch_size=8, shuffle=False
+)
 test_ds = test_tokenized.to_tf_dataset(
     columns=["input_ids", "attention_mask", "labels"],
     batch_size=8, shuffle=False
@@ -404,7 +432,7 @@ test_ds = test_tokenized.to_tf_dataset(
 # Step 4: 编译与训练（labels 已在输入里，用模型内部 loss）
 # ============================================
 model.compile(optimizer=tf.keras.optimizers.Adam(3e-5))
-model.fit(train_ds, validation_data=test_ds, epochs=3)
+model.fit(train_ds, validation_data=val_ds, epochs=3)
 
 # ============================================
 # Step 5: 生成摘要
@@ -561,7 +589,7 @@ callbacks = [
     tf.keras.callbacks.ReduceLROnPlateau(factor=0.5, patience=1),
     tf.keras.callbacks.TensorBoard(log_dir="./logs")
 ]
-model.fit(train_ds, validation_data=test_ds, epochs=10, callbacks=callbacks)
+model.fit(train_ds, validation_data=val_ds, epochs=10, callbacks=callbacks)  # 验证集从 train 切出，勿用 test_ds（早停会泄漏测试集）
 ```
 
 ### 常见错误
@@ -626,6 +654,16 @@ flowchart TD
 **Transformer 路径完结！** 🎉
 
 你已从 Self-Attention 原理学到项目实战，掌握了 BERT/GPT/ViT/T5 四大模型，能用 HuggingFace 做微调和推理。
+
+---
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 三个项目各跑通 1 epoch：BERT 情感分类出 acc、ViT 出 acc、T5 摘要出 ROUGE |
+| 🟡 进阶 | 能解释为什么早停/调参不能看测试集（本文三个项目都已从 train 切出 val_ds）；若把 validation_data 换回 test_ds，指标会系统性偏高 |
+| 🔴 挑战 | 给 ViT 输入加 `image/127.5 - 1.0` 归一化（并转置成 NCHW），对比加之前/之后冻结阶段的 acc，说明分布偏移为什么会让迁移学习失效 |
 
 ---
 

@@ -107,8 +107,8 @@ lark_doc_url: https://my.feishu.cn/docx/StBKdZ45uoxcHxxu4prcQTs7n8F
 
 **四层 API（高→低）**：
 1. `tf.keras.Sequential`（最常用，类似 Sklearn）
-2. `tf.keras.Functional`（多输入/输出、残差）
-3. `tf.keras.Model` Subclass（完全自定义）
+2. `tf.keras.Model` + Functional 范式（多输入/输出、残差；没有 `tf.keras.Functional` 这个类）
+3. Subclass（`class M(tf.keras.Model)`，完全自定义）
 4. `tf.GradientTape`（纯手动，研究级）
 
 **面试话术**："Keras 是 TF 的高级 API，就像 Sklearn 是 scikit-learn 项目的用户接口。Keras 让你不用写底层计算图代码就能建深度学习模型。"
@@ -276,7 +276,7 @@ TF 可以同时组合早停 + 学习率衰减 + 模型保存，Sklearn 只能开
 
 **Sklearn 能做吗**：❌ Sklearn 没有预训练模型的概念。迁移学习需要深度学习框架（自动微分 + GPU + 预训练权重）。
 
-**面试亮点**："用 ImageNet 上训练的 ResNet50，1000 张图片就能达到从头训练 100 万张图片的精度。这是深度学习的核心范式。"
+**面试亮点**："用 ImageNet 上训练的 ResNet50，同域任务下千级样本微调就能达到从头训练十万级样本的水平——预训练把所需标注量降低了 1–2 个数量级，而且这个红利在跨域（医学/工业）时会明显缩水。这是深度学习的核心范式。"
 </details>
 
 ---

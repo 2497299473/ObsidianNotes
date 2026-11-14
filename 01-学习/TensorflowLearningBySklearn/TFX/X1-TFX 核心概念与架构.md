@@ -241,18 +241,19 @@ from tfx.orchestration.local.local_dag_runner import LocalDagRunner
 runner = LocalDagRunner()
 runner.run(tfx_pipeline)
 
-# ========== Kubeflow Pipelines（生产环境）==========
-from tfx.orchestration.kubeflow import KubeflowDagRunner
+# ========== Kubeflow Pipelines（生产环境，TFX 1.15 对应 KFP v2）==========
+# 注意：KFP v1 时代的 KubeflowDagRunner/KubeflowDagRunnerConfig 在 TFX 1.x 已移除，只剩 v2 命名空间
+from tfx.orchestration.kubeflow.v2 import kubeflow_v2_dag_runner
 
-kubeflow_config = KubeflowDagRunnerConfig(
-    kubeflow_metadata_config=metadata_config,
+kubeflow_config = kubeflow_v2_dag_runner.KubeflowV2DagRunnerConfig(
+    default_metadata_config=metadata_config,
     tfx_image='my-tfx-image:latest',
 )
-KubeflowDagRunner(config=kubeflow_config).run(tfx_pipeline)
+kubeflow_v2_dag_runner.KubeflowV2DagRunner(config=kubeflow_config).run(tfx_pipeline)
 
 # ========== Apache Airflow ==========
 from datetime import datetime
-from tfx.orchestration.airflow.airflow_runner import AirflowDAGRunner
+from tfx.orchestration.airflow.airflow_dag_runner import AirflowDAGRunner  # 模块名是 airflow_dag_runner，不是 airflow_runner
 
 # AirflowDAGRunner 接收一个 dict：键就是 airflow.DAG 的构造参数
 # （没有 dag_id / pipeline_name 这类参数，流水线名由 TFX Pipeline 自身携带）
@@ -530,13 +531,13 @@ tfdv.display_anomalies(anomalies)
 > ```
 >
 > ```python
-> from tfx.orchestration.kubeflow import KubeflowDagRunner, KubeflowDagRunnerConfig
+> from tfx.orchestration.kubeflow.v2 import kubeflow_v2_dag_runner
 >
-> config = KubeflowDagRunnerConfig(
->     kubeflow_metadata_config=metadata_config,
+> config = kubeflow_v2_dag_runner.KubeflowV2DagRunnerConfig(
+>     default_metadata_config=metadata_config,
 >     tfx_image='tensorflow/tfx:latest',
 > )
-> KubeflowDagRunner(config=config).run(my_pipeline)
+> kubeflow_v2_dag_runner.KubeflowV2DagRunner(config=config).run(my_pipeline)
 > ```
 >
 > </details>
@@ -552,6 +553,16 @@ tfdv.display_anomalies(anomalies)
 | 3 | 组件顺序手动指定 | DAG 顺序由 Artifact 依赖自动决定，不需要手动排序 |
 | 4 | 所有组件放在一个 Python 文件 | 每个组件用独立 `module_file`（transform_module.py、trainer_module.py） |
 | 5 | 忽略 metadata_connection_config | 必须配置元数据存储（SQLite / MySQL），否则无法追踪 Artifact |
+
+---
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | Hello World 四组件（ExampleGen→StatisticsGen→SchemaGen→Trainer）跑通，并指出 `metadata.db` 落在哪个路径、里面记了什么 |
+| 🟡 进阶 | 用 `InteractiveContext` 逐个组件跑一遍，说出第 N 个组件是怎么拿到上一个组件的 `artifact.uri` 的（而不是靠手写路径） |
+| 🔴 挑战 | 画出含 `Tuner` 的 DAG，标出哪些组件**不能**并行，并说明 `StatisticsGen → SchemaGen` 为什么是硬依赖（消费哪条输出） |
 
 ---
 

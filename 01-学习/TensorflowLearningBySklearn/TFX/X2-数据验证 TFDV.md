@@ -196,7 +196,8 @@ city.valency = 1                    # 只能有一个值
 income = tfdv.get_feature(schema, 'income')
 income.presence.min_fraction = 0.8  # 至少 80% 存在
 
-# 4. 添加特征间约束：如果 city == "beijing"，income > 5000
+# 4. 给 income 设值域（注意：这是单特征的值域，不是"特征间约束"）
+# TFDV 的 Schema 只能表达单列约束；"city == beijing 时 income > 5000" 这类跨列规则 TFDV 表达不了，
 tfdv.set_domain(schema, 'income', [5000, 1000000])
 
 # 5. 设置环境（区分训练/服务 Schema）
@@ -293,6 +294,8 @@ tfdv.display_anomalies(anomalies)
 > | age 出现 -1 | `INT_TYPE_SMALL_INT`（int 域）/ `FLOAT_TYPE_SMALL_FLOAT`（float 域） | 数据采集 bug |
 > | income 缺失率从 5% 涨到 30% | `FEATURE_TYPE_LOW_FRACTION_PRESENT`（低于 presence.min_fraction） | 上游数据源故障 |
 > | city 出现 Schema 枚举外的值 | `ENUM_TYPE_UNEXPECTED_STRING_VALUES` | 上游系统改了编码方式 |
+>
+> 上方的严重级别是**默认口径**，会随 TFDV 版本和 Schema 配置而变；判断“这个异常到底该不该拦”时，以 `validate_statistics` 结果里的 `anomaly_info[feature].severity` 实跑值为准（`SCHEMA_MISSING_COLUMN` 属于“缺列”，多数版本按不可放行的硬错误处理）。
 
 ---
 
@@ -620,6 +623,16 @@ flowchart LR
 | 3 | 漂移阈值太严 | 太严会误报，应先用历史数据校准阈值 |
 | 4 | 只看异常不看漂移 | 异常是硬错误，漂移是软警告——两者都要监控 |
 | 5 | 忽视 Schema 版本 | 数据源变更时 Schema 需要更新，保留历史版本对比 |
+
+---
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 生成 stats + schema 后，`tfdv.display_schema(schema)` 能列出全部特征及其类型 / 是否存在约束 |
+| 🟡 进阶 | 造一份 `age = -5` 的数据跑 `validate_statistics`，报出触发的异常枚举名（`INT_TYPE_SMALL_INT` 一类）和它的 severity |
+| 🔴 挑战 | 同时配 `drift_comparator` + `previous_statistics`，让一次数据注入只报漂移、不报 schema 异常，并说清「异常（硬错误）」与「漂移（软警告）」的判定路径差别 |
 
 ---
 

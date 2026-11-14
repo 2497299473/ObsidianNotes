@@ -456,6 +456,16 @@ flowchart LR
 
 ---
 
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 配好 `EvalConfig`（AUC + F1 + `gender` 切片）并 `run_eval`，输出整体指标与 gender 切片指标两张表 |
+| 🟡 进阶 | 加 baseline 与 `change_threshold`，造一个明显更差的模型跑一遍，看到 `blessed=False` |
+| 🔴 挑战 | 解释 `blessed=False` 时 Pusher 的行为，并给出一个"阈值设得太严导致模型永远不更新"的具体反例（写出阈值与两次评估的指标值） |
+
+---
+
 *前置：[[X3-特征工程 TFT]]*
 *后续：[[X5-推送与部署]]*
 *关联：[[05-模型评估与调优对比]]（cross_val_score 锚点）*

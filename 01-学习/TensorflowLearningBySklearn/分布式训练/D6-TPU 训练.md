@@ -290,11 +290,21 @@ flowchart LR
 |---|------|---------|
 | 1 | 忘记 `drop_remainder=True` | TPU 必须，否则编译失败 |
 | 2 | batch_size 太小 | 全局 batch 至少 128（8 核 × 16） |
-| 3 | 用 `model.fit(x, y)` 直接传 numpy | 必须用 `tf.data` 管道 |
+| 3 | 用 `model.fit(x, y)` 直接传 numpy（也能跑，但控制不了批尾） | 推荐 `tf.data`；真硬要求是**静态 shape + `drop_remainder=True`**，numpy 输入无法保证这一条 |
 | 4 | 模型有动态 shape | TPU 编译时 shape 必须静态 |
 | 5 | 本地文件传给 TPU | 数据必须放在 GCS |
 | 6 | 用 float16 而非 bfloat16 | TPU 原生支持 bfloat16 |
 | 7 | 忘记 initialize_tpu_system | 每次启动必须初始化 TPU |
+
+---
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | Colab TPU 上 `num_replicas_in_sync` 打印为 8，MNIST 小模型能收敛 |
+| 🟡 进阶 | 去掉 `drop_remainder=True`，复现一次编译失败并贴出错误原文，再改回来说明为什么 TPU 要求静态 batch |
+| 🔴 挑战 | 开 `mixed_bfloat16`，对比 fp32 的 step 时间与 loss 曲线，并说明为什么 TPU 上用 bf16 而不是 fp16 |
 
 ---
 

@@ -617,16 +617,18 @@ print(f"RNN 打乱后输出变化: {not np.allclose(rnn_out_original, rnn_out_sh
 
 attn_out_original = attn_model.predict(x[:1], verbose=0)
 attn_out_shuffled = attn_model.predict(x_shuffled[:1], verbose=0)
-print(f"Self-Attn 打乱后输出变化: {not np.allclose(attn_out_original, attn_out_shuffled, atol=1e-4)}")
-# False — Self-Attention 输出基本不变（位置无关）
-# 证明 Self-Attention 需要位置编码！
+# Self-Attention 是置换等变：打乱输入→输出同样被置换，须按 perm 还原后再比
+attn_out_restored = tf.gather(attn_out_shuffled, tf.argsort(perm), axis=1)
+print(f"Self-Attn 还原后输出不变: {np.allclose(attn_out_original, attn_out_restored, atol=1e-4)}")
+# True — 按 perm 还原后输出可复现（置换等变）；直接逐位置比则不等
+# 证明 Self-Attention 本身不编码位置，需要位置编码！
 ```
 
 </details>
 
 **验收标准**：
 - RNN 输出随顺序变化（位置敏感）
-- Self-Attention 输出基本不随顺序变化（位置无关）→ 证明需要 PE
+- Self-Attention 打乱后按 perm 还原可复现（误差<1e-4，置换等变）→ 本身不编码位置，证明需要 PE
 
 ---
 
@@ -644,6 +646,16 @@ print(f"Self-Attn 打乱后输出变化: {not np.allclose(attn_out_original, att
 | Cross-Attention | Q 来自 Decoder，K/V 来自 Encoder |
 
 **下一篇**：[[T2-Multi-Head Attention]] — 为什么需要多个注意力头，以及因果遮罩（Causal Mask）的实现。
+
+---
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 手写 `scaled_dot_product_attention(Q, K, V)`，喂随机输入后每一行 attention 权重之和为 1（误差 < 1e-6） |
+| 🟡 进阶 | 手算练习 1 的 2×2 注意力权重，与代码输出逐位对齐（差值 < 1e-6），并说清 softmax 是在行方向还是列方向归一化 |
+| 🔴 挑战 | 把 `1/√d_k` 去掉、`d_k=512` 跑一遍，报告 softmax 熵与最大权重的变化，并解释为什么这就是「点积变大 → 梯度变小」的原因 |
 
 ---
 

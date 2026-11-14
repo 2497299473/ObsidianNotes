@@ -915,5 +915,15 @@ print(f"1 2 3 → {' '.join(result)}")  # 应输出 "一 二 三"
 
 ---
 
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 组装 2 层 Encoder + 2 层 Decoder，前向输出 `(1, 6, 1000)`，并用手写的小矩阵验证 `create_look_ahead_mask` 的右上三角为 1（=被遮蔽） |
+| 🟡 进阶 | 把 `look_ahead_mask` 传 `None`，观察训练 loss 骤降，并解释这是「看到了答案」的作弊而不是模型变强 |
+| 🔴 挑战 | 完成练习 3 的微型翻译训练，跑出「1 2 3 → 一 二 三」级别的过拟合，并说明 Teacher Forcing 在训练/推理时的差别 |
+
+---
+
 *前置：[[T1-Self-Attention 深度原理]] / [[T2-Multi-Head Attention]] / [[T3-Positional Encoding]]*
 *后续：[[T5-BERT 双向预训练与微调]]*

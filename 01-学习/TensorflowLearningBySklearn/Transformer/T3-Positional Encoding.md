@@ -492,7 +492,7 @@ x_test = tf.keras.preprocessing.sequence.pad_sequences(x_test, maxlen=max_len)
 
 # 对比
 for pe_type in ['sine', 'learnable']:
-    model = build_model(pe_type)
+    model = build_model(pe_type, max_len=max_len)  # 显式传 max_len，否则默认 100 与 pad 到 200 的数据 shape 不匹配
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
     history = model.fit(x_train, y_train, validation_split=0.1,
                         epochs=3, batch_size=128, verbose=0)
@@ -524,11 +524,14 @@ import numpy as np
 seq_len, dim = 8, 16
 theta = get_rotary_embedding(seq_len, dim)
 
-# 随机 Q/K
-Q = tf.random.normal((1, seq_len, 1, dim))
-K = tf.random.normal((1, seq_len, 1, dim))
+# 固定内容、只让位置变化：否则"两对分数不一样"是 Q/K 内容不同造成的，
+# 根本测不出 RoPE 的相对位置性质
+q_vec = tf.random.normal((1, 1, 1, dim))
+k_vec = tf.random.normal((1, 1, 1, dim))
+Q = tf.tile(q_vec, [1, seq_len, 1, 1])   # 每个位置放同一个 q
+K = tf.tile(k_vec, [1, seq_len, 1, 1])   # 每个位置放同一个 k
 
-# 无 RoPE 的注意力分数
+# 无 RoPE 的注意力分数（同一内容 → 处处相等，与位置无关）
 scores_no_rope = tf.matmul(Q, K, transpose_b=True)[0, 0].numpy()
 
 # 有 RoPE 的注意力分数
@@ -536,12 +539,13 @@ Q_rope = apply_rope(Q, theta)
 K_rope = apply_rope(K, theta)
 scores_rope = tf.matmul(Q_rope, K_rope, transpose_b=True)[0, 0].numpy()
 
-# 验证：scores_rope[m, n] 应该只依赖 m-n
-# 检查 scores_rope[1, 3] vs scores_rope[2, 4]（相对距离都是 -2）
-print(f"score(pos=1, pos=3) = {scores_rope[1, 3]:.4f}")
-print(f"score(pos=2, pos=4) = {scores_rope[2, 4]:.4f}")
-print(f"score(pos=3, pos=5) = {scores_rope[3, 5]:.4f}")
-# 相对距离相同的对，分数应接近（不完全相等因为数值精度）
+# 验证：scores_rope[m, n] 应该只依赖 m-n（下面 4 对偏移全是 -2）
+pairs = [(0, 2), (1, 3), (2, 4), (3, 5)]
+vals = [scores_rope[m, n] for m, n in pairs]
+for (m, n), v in zip(pairs, vals):
+    print(f"score(pos={m}, pos={n}) = {v:.6f}   # 偏移 {m - n}")
+print(f"同一偏移的最大差值 = {max(vals) - min(vals):.2e}")
+# 应 < 1e-5 —— 相等是靠"内容相同 + 偏移相同"，不是"数值精度凑巧接近"
 
 # 对比：打乱序列后输出变化
 x = tf.random.normal((1, seq_len, dim))
@@ -586,6 +590,16 @@ print(f"  差异: {tf.reduce_max(tf.abs(attn_rope - tf.reverse(attn_rope_shuffle
 | 相对位置 | sin/cos 通过三角恒等式，RoPE 通过旋转 |
 
 **下一篇**：[[T4-Encoder-Decoder 完整架构]] — 把 Attention + PE + FFN + 残差 + LayerNorm 组装成完整 Transformer。
+
+---
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 画出 sin/cos 位置编码热力图，指出哪些维度是高频（变化快）、哪些是低频（变化慢），并说出原因（`base^(2i/d)`） |
+| 🟡 进阶 | 实现可学习位置编码并接进模型，报出新增参数量恰为 `max_len × d_model`，且与正弦版对比验证准确率差异 |
+| 🔴 挑战 | 实现 RoPE（练习 3），固定同一对 Q/K 内容只改位置，验证分数只依赖 `m-n`（同偏移差值 < 1e-5），并解释为什么该比较**不能**用随机 Q/K |
 
 ---
 

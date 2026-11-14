@@ -314,11 +314,14 @@ model.save('model_with_preprocessing.keras')
 | 特性 | Sklearn Pipeline | Keras Sequential | tf.data.Dataset |
 |------|:---:|:---:|:---:|
 | 预处理与模型一体化 | ✅ | ✅ | ❌（外部管道） |
-| 防 data leakage | ✅ | ✅ | 需手动注意 |
+| 防 data leakage | ✅ | ⚠️ 取决于 `adapt` 喂的是哪份数据 | 需手动注意（先 `shard`/再 `batch` 也可能串味） |
 | 支持流式加载大文件 | ❌ | ❌ | ✅ |
 | GPU 预取加速 | ❌ | ❌ | ✅ |
 | 支持图片/文本加载 | ❌ | 部分 | ✅ |
 | 多输入处理 | `ColumnTransformer` | Functional API | `map` + 多输入 |
+
+> [!warning] Sequential 本身不防泄漏
+> `Normalization` / `StringLookup` 这类层的统计量是 `adapt()` 时算出来的——**只对训练集 `adapt` 才防泄漏**，把全量数据（含验证/测试）丢给 `adapt` 等价于 Sklearn 里 `fit(X)` 用了全量。`Pipeline` 的 `✅` 来自"`fit` 只碰训练折"这一约定，也不是容器自带。
 
 > [!important] 什么时候用 tf.data？
 > | 场景 | 推荐方式 |
@@ -696,7 +699,9 @@ print("加载后预测:", pred.flatten())
 **题目**：创建包含数值特征和类别特征的 Keras 模型，预处理层嵌入模型。
 
 ```python
-X_num = np.random.randn(500, 3).astype(np.float32)
+# ⚠️ 三列量纲不同（×1 / ×100 / ×10000）：这样“逐特征标准化”才看得出来。
+# 若三列同分布，axis=None（全局一个标量）与 axis=-1（逐列）结果几乎一样，知识点在示例里不可见
+X_num = (np.random.randn(500, 3) * np.array([1, 100, 10000], dtype=np.float32)).astype(np.float32)
 X_cat = np.random.choice(['low', 'mid', 'high'], size=(500, 1)).astype(str)
 y = np.random.randint(0, 2, 500).astype(np.float32)
 ```
@@ -711,10 +716,13 @@ y = np.random.randint(0, 2, 500).astype(np.float32)
 <summary>💡 参考答案</summary>
 
 ```python
+import numpy as np
 import tensorflow as tf
 
 # 预处理层
-normalizer = tf.keras.layers.Normalization(axis=None)
+# ★ axis=-1（默认）：每列一套 mean/variance，等价 sklearn StandardScaler；
+#   axis=None 是在整个张量上算一个标量，三列共用同一套——能跑但预处理语义错（三列量纲差异会被保留）
+normalizer = tf.keras.layers.Normalization(axis=-1)
 normalizer.adapt(X_num)
 
 encoder = tf.keras.layers.StringLookup(
@@ -739,11 +747,19 @@ model.fit(
     {'numeric': X_num, 'categorical': X_cat},
     y, epochs=10, batch_size=32, verbose=1
 )
+
+# —— 可判定验收 ——
+# 统计量形状必须是 (3,)：(1,) 或标量就说明 axis 没限到特征维（axis=None 直接打穿）
+assert normalizer.mean.numpy().shape == (3,), normalizer.mean.numpy().shape
+# 逐列对拍（float32 + 万级量纲，容差按 rtol=1e-4 / atol=1e-2 放宽）
+assert np.allclose(normalizer.mean.numpy(), X_num.mean(axis=0), rtol=1e-4, atol=1e-2), '均值不是逐列的'
+assert np.allclose(normalizer.variance.numpy(), X_num.var(axis=0), rtol=1e-4, atol=1e-2), '方差不是逐列的'
 ```
 </details>
 
 **验收标准**：
 - [ ] 模型能正常训练（无报错）
+- [ ] `normalizer.mean.shape == (3,)`，且逐列均值/方差与 `X_num.mean(0)` / `X_num.var(0)` 对应（证明是逐特征而非全局标准化）
 - [ ] 能画出模型结构图（`tf.keras.utils.plot_model`）
 - [ ] 理解 `model.save()` 后预处理层已包含在内
 

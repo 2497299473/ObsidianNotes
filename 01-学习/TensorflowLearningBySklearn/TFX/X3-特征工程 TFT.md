@@ -159,7 +159,7 @@ def preprocessing_fn(inputs):
     )
 
     # 5. 缺失值填充
-    outputs['age_filled'] = tft.fill_missing(inputs['age'], fill_value=0)
+    outputs['age_filled'] = tft.fill_missing(inputs['age'], default_value=0.0)  # 关键字是 default_value，不是 fill_value
 
     # 6. 桶化（等价于 KBinsDiscretizer）
     # 推荐：一步完成——tft.bucketize 内部先全量计算分位数边界（Analyze），
@@ -221,8 +221,8 @@ flowchart LR
 # === 数值型 ===
 tft.scale_to_z_score(x)          # StandardScaler
 tft.scale_to_0_1(x)              # MinMaxScaler
-tft.scale_to_mean_per_key(x, key) # 按 key 分组标准化
-tft.fill_missing(x, fill_value)   # SimpleImputer
+tft.scale_to_z_score_per_key(x, key)   # 按 key 分组做 z-score（另有 scale_by_min_max_per_key）
+tft.fill_missing(x, default_value)     # SimpleImputer（参数名是 default_value；省略时按特征类型自动取统计量）
 tft.clip(x, min_val, max_val)    # 手动裁剪
 
 # === 类别型 ===
@@ -379,6 +379,16 @@ model.fit(train_data, train_labels, epochs=10)
 | 3 | 用 Keras 预处理层代替 TFT | 生产部署时建议用 TFT 保证一致性 |
 | 4 | Transform Graph 不嵌入模型 | 确认 Pusher 把 graph 和 model 合并导出 |
 | 5 | 忽视 TFT 的 Beam/Spark 依赖 | 大数据集需要 Beam 做分布式统计 |
+
+---
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 写出 `preprocessing_fn`（age 用 `tft.scale_to_z_score`、city 用 `compute_and_apply_vocabulary`），并让 Transform 组件成功产出 `transformed_examples` + `transform_graph` |
+| 🟡 进阶 | 同一份数据分别用 TFT 的 `scale_to_z_score` 与 Keras `Normalization` 标准化，比对两者的 mean/std（差值 < 1e-5），并说出差别只在"统计量何时算、存在哪" |
+| 🔴 挑战 | 给 `device` 加一路 per-key 标准化（`scale_to_z_score_per_key`），说明服务端必须同时保留 key→统计量映射，并指出线上出现**新 key** 时会发生什么 |
 
 ---
 

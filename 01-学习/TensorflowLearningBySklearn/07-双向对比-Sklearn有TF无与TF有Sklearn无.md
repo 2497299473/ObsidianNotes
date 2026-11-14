@@ -161,7 +161,7 @@ flowchart LR
 |---------|------|:---:|
 | **学习率调度** | `ReduceLROnPlateau` / `CosineDecay` | ❌ 无 |
 | **TensorBoard** | 训练可视化、权重分布 | ❌ 无 |
-| **EarlyStopping** | 验证指标不提升时停止 | 仅 `MLPClassifier` 有 |
+| **EarlyStopping** | 验证指标不提升时停止 | 仅 MLP/SGD 系列有（只能开关，不能自定义指标/耐心值/恢复权重） |
 | **ModelCheckpoint** | 保存最佳模型 | ❌ 需手动 |
 | **自定义训练循环** | `GradientTape` 完全控制 | ❌ 无 |
 | **Focal Loss** | 处理类别不均衡 | ❌ 无 |
@@ -245,7 +245,7 @@ def predict():
 
 ```python
 # 1. 保存 SavedModel（预处理层已嵌入，无需单独保存 scaler）
-model.save('saved_model')
+model.save('saved_model')  # 仅 Keras 2（TF≤2.15）；Keras 3 用 model.export('saved_model')
 
 # 2. TF Serving 部署（Docker 一行启动）
 # docker run -p 8501:8501 \

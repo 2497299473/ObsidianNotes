@@ -694,5 +694,15 @@ model.compile(optimizer=tf.keras.optimizers.Adam(2e-5),
 
 ---
 
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 加载 `bert-base-uncased` 跑一次前向，打印 `pooled_output` 形状 `(1, 768)`，并说出该向量对应哪个 token 的输出 |
+| 🟡 进阶 | 用 2000 条 IMDB 微调 3 epoch，从 train 切独立 val 集报 acc + F1，并与 `BertTokenizer` 的 `max_length` 截断策略对应上 |
+| 🔴 挑战 | 实现 `LoRADense` 替换一层投影，报出可训练参数占比（应 < 1%）与 acc 损失（< 2%），并说清它与「只训分类头」（T7 的做法）差在哪 |
+
+---
+
 *前置：[[T4-Encoder-Decoder 完整架构]]*
 *后续：[[T6-GPT 自回归生成]]*
