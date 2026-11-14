@@ -155,4 +155,14 @@ lark_doc_url: https://my.feishu.cn/docx/AzsmdoHAQoOvDCxojmkcRHKUnrf
 
 ---
 
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 随机抽 10 个术语，说出它的 Docker 对应 + 一句话解释，允许 1 个答"无对标" |
+| 🟡 进阶 | 指出术语表里 3 处"Docker 对应"只是近似而非等价（Namespace≠Compose 项目名、Scheduler≠Swarm Manager、kube-proxy≠iptables 规则），并说明差在哪 |
+| 🔴 挑战 | 给一个没接触过 K8S 的 Docker 用户讲清 Pod / Deployment / Service 三者关系（5 分钟，画图），对方能复述"为什么删了 Pod 还会回来" |
+
+---
+
 *最后更新：2026-07-25*

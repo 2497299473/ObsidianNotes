@@ -215,7 +215,7 @@ kubectl get pv,pvc
 | ReadWriteOnce | RWO | 单节点读写 | 本地磁盘、EBS | `docker volume` 默认 |
 | ReadOnlyMany | ROX | 多节点只读 | NFS、GlusterFS | 无对标 |
 | ReadWriteMany | RWX | 多节点读写 | NFS、CephFS | NFS 共享存储 |
-| ReadWriteOncePod | RWOP | 单 Pod 读写 | K8S 1.22+ | 无对标 |
+| ReadWriteOncePod | RWOP | 单 Pod 读写 | K8S 1.22 引入 / 1.29 稳定（GA） | 无对标 |
 
 > [!warning] Docker 的 Volume 没有访问模式概念
 > Docker Volume 可以被多个容器同时挂载，但可能导致数据损坏。K8S 的 Access Mode 显式声明并发约束，更安全。
@@ -231,9 +231,11 @@ kind: StorageClass
 metadata:
   name: fast-ssd
 provisioner: k8s.io/minikube-hostpath   # minikube 默认供给器
-# 生产环境用：kubernetes.io/aws-ebs / kubernetes.io/gce-pd
+# 生产环境用 CSI 驱动：ebs.csi.aws.com / pd.csi.storage.gke.io（老集群可能仍是 in-tree 名 kubernetes.io/aws-ebs、kubernetes.io/gce-pd）
+# 注意：minikube-hostpath 没有 parameters 可调，下面这个 type: ssd 是 EBS CSI 的参数，
+#       hostpath 会静默忽略它（照抄不会报错，但也不会真的给一块 SSD）——只作对照，别当成生效配置
 parameters:
-  type: ssd
+  type: ssd                             # ← 仅 EBS CSI（ebs.csi.aws.com）有效
 reclaimPolicy: Delete                    # PVC 删除时自动删除 PV
 volumeBindingMode: WaitForFirstConsumer  # 延迟绑定，等 Pod 调度后再创建
 ---
@@ -391,7 +393,7 @@ metadata:
 spec:
   containers:
   - name: app
-    image: myapp:latest
+    image: myapp:1.0.0        # 不要用 latest：滚动更新 / 回滚都靠明确 tag
     env:
     - name: DB_PASSWORD        # 方式 1：注入为环境变量
       valueFrom:

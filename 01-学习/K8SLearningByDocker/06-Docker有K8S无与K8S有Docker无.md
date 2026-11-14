@@ -59,6 +59,9 @@ flowchart LR
 
 ## 第一板块：Docker 有、K8S 没有的 12 个核心特性
 
+> [!note] 本板块标题的"没有"要分两种读法
+> §3 `docker exec`、§9 `docker logs -f`、§10 `docker network ls` 属**体验/命名差异**——前两者 K8S 有等价命令（`kubectl exec` / `kubectl logs -f`），只是多一段 Pod 名和 `--`；网络查看则是 K8S 不把网络暴露为可查询资源。真正的**能力缺失**是 §1 镜像构建、§2 Compose 单文件、§5 单机简单性、§8 一键清理这类。
+
 ### 1. BuildKit 镜像构建能力
 
 ```dockerfile
@@ -270,7 +273,7 @@ while True:
 |------|--------------|-----------|
 | 思维方式 | 一步一步怎么做 | 期望状态是什么 |
 | 幂等性 | 无（重复执行会出错） | 有（重复执行无副作用） |
-| 自愈 | 需 `--restart=always` | 控制器自动调和 |
+| 自愈 | 需 `--restart=always` | 控制器自愈（控制器重建 Pod；`restartPolicy` 恒为 `Always`） |
 | 版本管理 | 脚本 | YAML 纳入 git |
 
 ### 2. etcd 分布式状态存储
@@ -565,12 +568,15 @@ spec:
   initContainers:
   - name: init-db
     image: alpine
-    command: ["sh", "-c", "until nc -z postgres 5432; do sleep 1; done"]
+    command: ["sh", "-c", "until nc -z -w1 postgres 5432; do sleep 1; done"]
   containers:
   - name: app
     image: myapp
 # init 容器完成后才启动主容器
 ```
+
+> [!warning] `nc -z` 的兼容性
+> BusyBox 版 `nc` 对 `-z` 的支持随版本变化（部分镜像报 `invalid option -- 'z'`），所以这里加 `-w1` 限制单次探测超时、避免卡死。若仍报错，换带 `netcat-openbsd` 的镜像（如 `alpine` + `apk add netcat-openbsd`）；`/dev/tcp` 是 bash 特性，BusyBox `sh` 不支持，不能当兼容方案。
 
 > **Docker 对比**：Docker Compose 用 `depends_on` + `healthcheck` 模拟，但不如 Init Container 灵活。
 

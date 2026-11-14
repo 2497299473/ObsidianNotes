@@ -22,7 +22,8 @@ lark_doc_url: https://my.feishu.cn/docx/PhOUdxqnaoJWG0x5tCmcG4YYnGf
 | 启动应用 | `docker run -d nginx` | `kubectl create deployment nginx --image=nginx` |
 | 启动应用（声明式） | `docker compose up -d` | `kubectl apply -f deploy.yaml` |
 | 查看运行中 | `docker ps` | `kubectl get pods` |
-| 查看所有命名空间 | `docker ps -a` | `kubectl get pods -A` |
+| 查看所有命名空间 | 无对标（Docker 是单机，无命名空间） | `kubectl get pods -A` |
+| 查看已停止的容器 | `docker ps -a`（`-a` = 含已停止，不是跨命名空间） | 无对标（退出的 Pod 直接在 `kubectl get pods` 里显示 `Completed`/`Error`） |
 | 查看详情 | `docker inspect <c>` | `kubectl describe pod <pod>` |
 | 查看日志 | `docker logs -f <c>` | `kubectl logs -f <pod>` |
 | 查看多个 Pod 日志 | `docker logs -f`（单个） | `kubectl logs -f -l app=web`（按标签） |
@@ -41,7 +42,7 @@ lark_doc_url: https://my.feishu.cn/docx/PhOUdxqnaoJWG0x5tCmcG4YYnGf
 | 构建镜像 | `docker build -t myapp .` | `docker build`（不变！K8S 不负责构建） |
 | 拉取镜像 | `docker pull nginx` | 自动拉取（K8S 节点 containerd 自动 pull） |
 | 推送镜像 | `docker push myrepo/myapp` | `docker push`（不变！） |
-| 查看本地镜像 | `docker images` | `kubectl get pods`（不暴露镜像列表） |
+| 查看本地镜像 | `docker images` | 无对标（K8S 不暴露镜像列表，需登录节点 `crictl images`） |
 | 删除镜像 | `docker rmi <image>` | 节点上 `crictl rmi <image>` |
 | 多架构构建 | `docker buildx build --platform` | `docker buildx`（不变！） |
 
@@ -85,7 +86,7 @@ lark_doc_url: https://my.feishu.cn/docx/PhOUdxqnaoJWG0x5tCmcG4YYnGf
 | 挂载 Volume | `docker run -v mydata:/data` | Pod YAML 中 `persistentVolumeClaim` |
 | 挂载本地目录 | `docker run -v /host:/container` | Pod YAML 中 `hostPath` |
 | 查看存储 | `docker volume ls` | `kubectl get pv,pvc` |
-| 删除存储 | `docker volume rm mydata` | `kubectl delete pvc mydata` |
+| 删除存储 | `docker volume rm mydata` | `kubectl delete pvc mydata`（⚠️ 删的是声明不是数据：`Retain` 的 PV 与后端磁盘仍在） |
 | 环境变量 | `docker run -e VAR=value` | ConfigMap + `envFrom` |
 | 配置文件 | `docker run -v ./conf:/etc/app` | ConfigMap Volume 挂载 |
 | 密钥管理 | `docker secret create` | `kubectl create secret` |
@@ -159,6 +160,16 @@ lark_doc_url: https://my.feishu.cn/docx/PhOUdxqnaoJWG0x5tCmcG4YYnGf
 | 回滚 | 无对标 | `helm rollback myapp 1` |
 | 打包 | 无对标 | `helm package ./myapp` |
 | 搜索仓库 | `docker search` | `helm search repo` |
+
+---
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 闭卷写出 10 组对照（run / ps / logs / exec / port / scale / rollback / volume / config / node），写完再对卡片，错 ≤ 2 组 |
+| 🟡 进阶 | 给一个真实排障场景（Pod Pending），30 秒内说出该查卡片哪一行 + 下一句敲什么（`kubectl describe pod` → Events 段） |
+| 🔴 挑战 | 给卡片补 5 条它没有的对照（如 `docker inspect` ↔ `kubectl get pod -o yaml`、`docker stats` ↔ `kubectl top pod`、`docker system df` ↔ `kubectl get pv` 看容量），并指出哪些条目是"无对标"而不是"没写" |
 
 ---
 

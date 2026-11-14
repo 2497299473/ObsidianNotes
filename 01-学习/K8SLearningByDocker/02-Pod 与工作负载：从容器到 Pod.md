@@ -372,6 +372,28 @@ docker service create --mode global --name log-agent log-collector
 ```
 
 ```yaml
+# 最小可采集的 fluent-bit 配置（没有这段，DaemonSet 起来也不会采任何日志）
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-config
+  namespace: kube-system
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush 5
+        Log_Level info
+
+    [INPUT]
+        Name tail
+        Path /var/log/containers/*.log
+        Parser docker
+        Tag kube.*
+
+    [OUTPUT]
+        Name stdout
+        Match *
+---
 # K8S DaemonSet
 apiVersion: apps/v1
 kind: DaemonSet
@@ -389,14 +411,20 @@ spec:
     spec:
       containers:
       - name: fluentd
-        image: fluent/fluent-bit:latest
+        image: fluent/fluent-bit:3.1.4
         volumeMounts:
         - name: varlog
           mountPath: /var/log
+        - name: config
+          mountPath: /fluent-bit/etc/fluent-bit.conf
+          subPath: fluent-bit.conf   # 只挂单个配置文件
       volumes:
       - name: varlog
         hostPath:
           path: /var/log
+      - name: config
+        configMap:
+          name: fluent-bit-config
 ```
 
 > [!tip] DaemonSet 的典型用途
@@ -552,8 +580,10 @@ kubectl create deployment app --image=nginx:1.25-alpine --replicas=3
 # 2. 触发滚动更新
 # 注意：--record 已在 kubectl 1.27 移除（本课程基线 1.30+，执行会报 unknown flag）
 # 记录变更原因改用 kubectl annotate；rollout history 的 CHANGE-CAUSE 列显示的就是该注解
-kubectl set image deployment/app nginx=nginx:1.27-alpine
+# ★ 顺序：先 annotate 再 set image。CHANGE-CAUSE 取自 ReplicaSet 上的注解，
+#   而新 ReplicaSet 在 set image 那一刻就已生成；后补注解，本轮可能记成空
 kubectl annotate deployment/app kubernetes.io/change-cause="upgrade to 1.27"
+kubectl set image deployment/app nginx=nginx:1.27-alpine
 kubectl rollout status deployment/app
 # 观察新旧 Pod 交替重启
 

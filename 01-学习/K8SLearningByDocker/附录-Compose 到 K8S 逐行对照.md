@@ -107,7 +107,7 @@ spec:
         volumeMounts:
         - name: config
           mountPath: /etc/nginx/nginx.conf
-          subPath: nginx.conf      # ★ 用 ConfigMap 挂单个文件必须加 subPath（取键名），否则挂载的是目录，nginx 读不到配置
+          subPath: nginx.conf      # ★ 用 ConfigMap 挂单个文件必须加 subPath（取键名），否则挂载的是目录，nginx 读不到配置；代价：subPath 不随 ConfigMap 更新
       volumes:
       - name: config
         configMap:
@@ -126,6 +126,10 @@ spec:
   - port: 80
     targetPort: 80
 ```
+
+> [!warning] subPath 的代价：不热更新
+> 上面的 `nginx.conf` 是用 `subPath` 挂的单文件——**ConfigMap 改了它不会变**，必须 `kubectl rollout restart deploy/web` 才会读到新配置。
+> 04 章说的"Volume 方式支持热更新"指的是**不带 subPath 的整目录挂载**（挂到 `/etc/nginx/conf.d/` 这种空目录），两者不是一回事。
 
 ---
 
@@ -173,13 +177,13 @@ spec:
       labels:
         app: api
     spec:
-      initContainers:                    # ≈ depends_on（精确等待）
+      initContainers:                    # ≈ depends_on（精确等待；超时后放行，由应用自己重试）
       - name: wait-for-db
         image: busybox
-        command: ["sh", "-c", "until nc -z db 5432; do sleep 1; done"]
+        command: ["sh", "-c", "until nc -z db 5432 || [ $SECONDS -gt 60 ]; do sleep 1; done"]
       - name: wait-for-cache
         image: busybox
-        command: ["sh", "-c", "until nc -z cache 6379; do sleep 1; done"]
+        command: ["sh", "-c", "until nc -z cache 6379 || [ $SECONDS -gt 60 ]; do sleep 1; done"]
       containers:
       - name: api
         image: myrepo/api:1.0.0
@@ -214,6 +218,9 @@ spec:
     targetPort: 5000
 ```
 
+> [!note] 上面两个 initContainer 的 `nc -z` 兼容性
+> BusyBox 的 `nc` 对 `-z` 支持随版本变化（部分镜像报 `invalid option -- 'z'`）。稳妥写法是 `nc -w1 -z host port`（带单次超时）；若仍报错，换带 `netcat-openbsd` 的镜像。`/dev/tcp` 是 bash 特性，BusyBox `sh` 不支持，不能当兼容方案。
+
 ---
 
 ### ③ db 服务 → StatefulSet + PVC + Secret
@@ -230,9 +237,9 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: db-headless
+  name: db
 spec:
-  clusterIP: None          # ★ Headless
+  clusterIP: None          # ★ Headless（命名为 db，让 api 的 DATABASE_URL/initContainer 能解析）
   selector:
     app: db
   ports:
@@ -244,7 +251,7 @@ kind: StatefulSet
 metadata:
   name: db
 spec:
-  serviceName: db-headless
+  serviceName: db
   replicas: 1
   selector:
     matchLabels:
@@ -407,6 +414,16 @@ kubectl exec -it deployment/api -- sh -c "nc -z cache 6379 && echo CACHE_OK"
 kubectl delete pod -l app=api
 kubectl get pods -l app=api -w  # 观察自动重建
 ```
+
+---
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 4 个服务全部迁移并跑通：`kubectl get svc` 看到 web / api / db / cache，`curl <web>` 能拿到经 api 代理的响应 |
+| 🟡 进阶 | 不看对照表独立写出 web 段（ConfigMap + Deployment + subPath 挂载 + Service），并答出 subPath 不加会怎样（挂成目录 → nginx 报 `is a directory` 读不到配置）、加了之后为什么改配置要重启 Pod |
+| 🔴 挑战 | 用 `kompose convert` 转一份，逐条列出它生成的 3 处必须手改（db 改 StatefulSet、env 拆 ConfigMap/Secret、depends_on 改 initContainer），并说明每处的理由 |
 
 ---
 

@@ -102,6 +102,11 @@ spec:
         backend: { service: { name: api-svc, port: { number: 5000 } } }
 ```
 
+> [!warning] "直通"不等于"重写"：api 必须自带 `/api` 前缀
+> 没写 `rewrite-target` 时，`/api/health` 会原样转给容器，Flask 侧收到的仍是 `/api/health`。若应用只声明了 `/health`，就会 404。两种解法：
+> ① 应用路由自带前缀：`@app.route("/api/health")`；
+> ② Ingress 侧改写：加注解 `nginx.ingress.kubernetes.io/rewrite-target: /$2`，path 改成 `/api(/|$)(.*)` 且 `pathType: ImplementationSpecific`（带正则不能用 Prefix）。
+
 ## 更新 api Deployment 的环境变量
 
 ```yaml
@@ -143,7 +148,7 @@ exit
 minikube addons enable ingress
 echo "$(minikube ip) app.local" | sudo tee -a /etc/hosts
 curl http://app.local       # → web 服务
-curl http://app.local/api   # → api 服务
+curl http://app.local/api/health   # → api 服务（api 收到的路径就是 /api/health；若 404 看上方「直通≠重写」）
 
 # 6. 验证服务间通信
 kubectl exec -it deployment/api -- sh -c "nc -z db-svc 5432 && echo 'DB OK'"

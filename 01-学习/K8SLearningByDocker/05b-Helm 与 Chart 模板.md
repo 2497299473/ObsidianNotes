@@ -176,8 +176,10 @@ redis:
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up
 
 # Helm 方式：多环境
-helm install myapp ./myapp -f values.yaml -f values-prod.yaml -n prod
+helm install myapp ./myapp -f values.yaml -f values-prod.yaml -n prod --create-namespace
 # 后面的 -f 覆盖前面的，最终合并为完整配置
+# ⚠️ 集群里没有 prod 这个 namespace 时必须带 --create-namespace，
+#    否则报 namespaces "prod" not found（与后文进阶练习的写法保持一致）
 ```
 
 ---
@@ -451,11 +453,12 @@ ingress:
           pathType: Prefix
 EOF
 
-# 2. 分别部署到不同 namespace
-helm install myapp ./my-first-chart -f values-dev.yaml -n dev --create-namespace
-helm install myapp ./my-first-chart -f values-prod.yaml -n prod --create-namespace
+# 2. 分别部署到不同 namespace（values 文件在 chart 目录内，路径要写全）
+helm install myapp ./my-first-chart -f my-first-chart/values-dev.yaml -n dev --create-namespace
+helm install myapp ./my-first-chart -f my-first-chart/values-prod.yaml -n prod --create-namespace
 
-# 3. 对比两个环境的 Pod 数量和资源
+# 3. 对比两个环境的 Pod 数量和资源（先等 Pod 就绪再判断）
+kubectl rollout status deployment/myapp -n dev --timeout=120s
 kubectl get pods -n dev
 kubectl get pods -n prod
 kubectl get pods -n dev -o wide | grep cpu   # 对比资源请求
@@ -479,9 +482,11 @@ data:
   LOG_LEVEL: {{ .Values.logLevel | default "info" | quote }}
   config.yaml: |
     database:
-      host: {{ .Values.db.host | default "localhost" }}
-      port: {{ .Values.db.port | default 5432 }}
+      host: {{ (.Values.db | default dict).host | default "localhost" }}
+      port: {{ (.Values.db | default dict).port | default 5432 }}
 EOF
+# ⚠️ 坑：.Values.db.host 在 db 键不存在时会 nil pointer panic，default 救不了（取值这一步就炸）；
+#    必须先 (.Values.db | default dict) 给个默认 map，再取子键。
 
 # 2. 添加 Redis 子 Chart
 cat >> my-first-chart/Chart.yaml << 'EOF'

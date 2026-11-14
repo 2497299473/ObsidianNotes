@@ -300,11 +300,18 @@ spec:
 ```
 
 ```bash
-# 安装 Ingress Controller（以 Nginx Ingress 为例）
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/cloud/deploy.yaml
+# 安装 Ingress Controller —— 二选一，两条都执行会装出两个 controller（都占节点 80/443、都叫 ingressClassName: nginx）
+# 判断标准：本地 minikube → 路线 A；kind/k3d/云上集群 → 路线 B
 
-# minikube 启用 Ingress
+# ── 路线 A：minikube 用户（推荐）
 minikube addons enable ingress
+kubectl get pods -A | grep ingress   # 应看到 ingress-nginx-controller-xxx Running
+
+# ── 路线 B：非 minikube 集群
+# 教学基线 K8s 1.30+ 对应 ingress-nginx v1.11.x（原 v1.10.0 属 1.29 时代）
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.11.5/deploy/static/provider/cloud/deploy.yaml
+# 云上集群把 provider/cloud 换成 provider/aws、provider/azure、provider/gce 等对应目录
+kubectl get pods -A | grep ingress   # 同样看到 controller Pod Running
 
 # 创建 Ingress 资源
 kubectl apply -f ingress.yaml
@@ -492,7 +499,7 @@ kubectl delete svc web api
 ## 常见易错点
 
 > [!warning] **坑 1：Service 的 selector 不匹配 Pod 的 labels**
-> ```yaml
+> ```bash
 > # ❌ Pod label 是 app: nginx，Service selector 是 app: nginx-prod
 > # → Service 找不到任何 Endpoint，流量无法到达
 >
@@ -577,11 +584,9 @@ kubectl delete svc web api
 
 | 层次 | 检查项 |
 |------|--------|
-| 🟢 基础 | 能创建 ClusterIP 和 NodePort Service，并从集群内外访问 |
-| 🟢 基础 | 能解释 Service 如何通过标签选择器关联 Pod |
-| 🟡 进阶 | 能创建 Ingress 实现基于域名的路由，对比 Docker 中 Traefik 的配置方式 |
-| 🟡 进阶 | 能解释 K8S CNI 网络模型和 Docker bridge/overlay 网络的差异 |
-| 🔴 挑战 | 能创建 NetworkPolicy 限制 Pod 间流量，并验证隔离效果 |
+| 🟢 基础 | ① `kubectl create deployment web --image=nginx:alpine --replicas=3` + `kubectl expose deployment web --port=80 --type=NodePort --name=web-svc` 后，`kubectl get endpoints web-svc` 列出 **3 个 `<PodIP>:80`**；② `kubectl get svc web-svc` 读到 NodePort（如 31234），`curl -s -o /dev/null -w '%{http_code}' $(minikube ip):31234` 返回 **200**；③ 集群内 `kubectl run dns --rm -it --image=alpine -- nslookup web-svc` 能解析出 ClusterIP |
+| 🟡 进阶 | Ingress 按 Host 头分流：`curl -s -o /dev/null -w '%{http_code}' -H 'Host: web.local' http://$(minikube ip)` 与 `-H 'Host: api.local'` **都返回 200**，且 `kubectl describe ingress multi-route` 显示两条 rule 分别指向 `web:80` / `api:80`；把 `api.local` 那条 backend 改成不存在的 Service 名后重放，只有 `api.local` 变 **503**、`web.local` 仍 200（证明是按 Host 分流而非默认后端兜底） |
+| 🔴 挑战 | 装支持 NetworkPolicy 的 CNI（Calico）后建策略，只放行 `app=web` → `app=postgres:5432`：从 web Pod `nc -z -w1 postgres 5432 && echo OK` 输出 **OK**，从任意其他 Pod（`kubectl run tmp --rm -it --image=busybox:1.36 -- nc -z -w1 postgres 5432`）**超时无输出**；`kubectl get networkpolicy` 能看到策略对象，删掉策略后第二条立即恢复连通（证明拦截来自策略而非网络故障） |
 
 ---
 

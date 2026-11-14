@@ -171,7 +171,7 @@ spec:
     effect: "NoSchedule"
   containers:
   - name: gpu-app
-    image: tensorflow/tensorflow:latest-gpu
+    image: tensorflow/tensorflow:2.15.0-gpu
 ```
 
 | 污点效果 | 说明 | Docker 对标 |
@@ -211,6 +211,9 @@ spec:
 ```
 
 ```yaml
+# ⚠️ 片段（不是完整资源，单独 apply 会报 missing apiVersion/kind）
+# 用法：把下面 spec 层的 affinity 并入上一个 Deployment 的 spec，
+#       并删掉上面那段 podAffinity（同一个 affinity 下两者可共存，二选一更直观）
 # 让 web 副本分散到不同节点（高可用）
 spec:
   affinity:
@@ -405,9 +408,11 @@ kubectl label nodes minikube disk-
 minikube addons enable metrics-server
 
 # 2. 创建带资源请求的 Deployment（HPA 必须有 requests！）
+# requests 故意设小（cpu=10m）：单个 busybox wget 循环吞吐有限，nginx 服务静态首页 CPU 往往只 10-20m，
+# 若 requests=100m 则利用率长期 <50% 压不动 HPA；设 10m 后同样负载即可越过 50% 阈值
 kubectl create deployment hpatest --image=nginx:alpine --replicas=1
 kubectl set resources deployment hpatest \
-  --requests=cpu=100m,memory=128Mi \
+  --requests=cpu=10m,memory=128Mi \
   --limits=cpu=200m,memory=256Mi
 
 # 3. 创建 HPA
@@ -420,6 +425,7 @@ kubectl run load --rm -it --image=busybox:1.36 -- \
   /bin/sh -c "while true; do wget -q -O- http://hpatest; done"
 
 # 5. 在另一个终端观察 HPA 自动扩容
+# 验收：TARGETS 出现 >50%（如 80%/50%）且 REPLICAS 从 1 变 2；若长期 0%/50% 说明负载不够，加起几个 loadgen
 kubectl get hpa -w
 kubectl get pods -w
 
@@ -521,11 +527,9 @@ kubectl taint nodes minikube dedicated=test:NoSchedule-
 
 | 层次 | 检查项 |
 |------|--------|
-| 🟢 基础 | 能用 `kubectl scale` 手动扩缩容，对比 `docker service scale` |
-| 🟢 基础 | 能用 `nodeSelector` 约束 Pod 调度到特定节点 |
-| 🟡 进阶 | 能创建 HPA 实现基于 CPU 的自动扩缩容 |
-| 🟡 进阶 | 能对比 Docker Swarm `--constraint` 和 K8S `nodeAffinity`/`taints` 的差异 |
-| 🔴 挑战 | 能综合使用 nodeAffinity + podAntiAffinity + taints 设计高可用部署方案 |
+| 🟢 基础 | ① `kubectl create deployment web --image=nginx:alpine --replicas=2` 后 `kubectl scale deployment web --replicas=5`，`kubectl get pods -l app=web --no-headers \| wc -l` 从 **2 变 5**；缩回 1 后 `kubectl get deployment web` 的 READY 为 **1/1**；② `kubectl label nodes minikube disk=ssd` + 带 `nodeSelector: {disk: ssd}` 的 Pod `on-ssd`，`kubectl get pod on-ssd -o wide` 的 **NODE 列 = minikube**（删掉节点标签后重建同名 Pod 会停在 Pending） |
+| 🟡 进阶 | 启用 metrics-server 后 `kubectl autoscale deployment hpatest --cpu-percent=50 --min=1 --max=5`，开压测（busybox wget 循环打 `http://hpatest`）：`kubectl get hpa hpatest` 的 TARGETS 出现 **`>50%`（如 `80%/50%`）** 且 REPLICAS 从 **1 变 ≥2**；停压测约 5 分钟（默认缩容冷却）后 REPLICAS **回到 1**，`kubectl get hpa` 无 Events 报错 |
+| 🔴 挑战 | 单节点 minikube 上做「污点 + 容忍 + 硬反亲和」三件套：`kubectl taint nodes minikube dedicated=test:NoSchedule` 后，无 toleration 的 `no-toleration` 停在 **Pending**、带 toleration 的 `with-toleration` 变 **Running**；再给 3 副本 Deployment 加 `podAntiAffinity` 的 `requiredDuringSchedulingIgnoredDuringExecution`（`topologyKey: kubernetes.io/hostname`），结果是 **1 Running + 2 Pending**，并能说明这是单节点集群的预期行为（坑 6），不是调度器故障 |
 
 ---
 

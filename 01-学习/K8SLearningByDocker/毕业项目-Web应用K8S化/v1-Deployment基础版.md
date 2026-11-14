@@ -31,7 +31,7 @@ services:
     ports: ["80:80"]
     depends_on: [api]
   api:
-    image: flask-api:latest
+    image: flask-api:1.0.0
     environment:
       DATABASE_URL: postgres://user:pass@db:5432/app
       REDIS_URL: redis://cache:6379
@@ -62,6 +62,26 @@ volumes:
 | ports: ["80:80"] | （暂不处理） | v2 加 Service |
 | volumes: pgdata | （暂不处理） | v3 加 PVC |
 | environment | 直接写在 YAML 中 | v4 改 ConfigMap/Secret |
+
+## 镜像从哪来：先构建、再加载
+
+Deployment 里写 `flask-api:1.0.0`，集群里就必须真的存在这个 tag。v1 用的是本地构建的镜像，标准三步：
+
+```bash
+# 1. 构建（在 Flask 项目目录执行）
+docker build -t flask-api:1.0.0 .
+
+# 2. 把镜像加载进 minikube 的容器运行时（关键一步！不 load 会 ImagePullBackOff）
+minikube image load flask-api:1.0.0
+minikube image ls | grep flask-api      # 应看到 docker.io/library/flask-api:1.0.0
+
+# 3. 容器 spec 里显式写 imagePullPolicy: IfNotPresent（见下方 api Deployment）
+```
+
+> [!warning] 为什么不用 `flask-api:latest`
+> ① `:latest` 的默认拉取策略是 `Always`，镜像只在本地时反而要去远端拉、直接 `ImagePullBackOff`；
+> ② 每次 build 都覆盖同一个 tag，回滚时分不清"哪一版"——02 篇「坑 2」讲的就是这件事。
+> 显式写 `imagePullPolicy: IfNotPresent` 后，行为不再随 tag 变化，换镜像用 `kubectl rollout restart` 即可。
 
 ## K8S YAML
 
@@ -100,7 +120,8 @@ spec:
     spec:
       containers:
       - name: api
-        image: flask-api:latest
+        image: flask-api:1.0.0
+        imagePullPolicy: IfNotPresent    # 镜像由 minikube image load 预置（见上一节）
         env:
         - { name: DATABASE_URL, value: "postgres://user:pass@db:5432/app" }
         - { name: REDIS_URL, value: "redis://cache:6379" }

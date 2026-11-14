@@ -38,20 +38,21 @@ webapp-chart/
 ├── values-dev.yaml      # 开发环境覆盖
 ├── values-prod.yaml     # 生产环境覆盖
 ├── templates/
-│   ├── _helpers.tpl     # 模板辅助函数
-│   ├── configmap.yaml
-│   ├── secret.yaml
-│   ├── web-deployment.yaml
-│   ├── web-service.yaml
-│   ├── api-deployment.yaml
-│   ├── api-service.yaml
-│   ├── db-statefulset.yaml
-│   ├── db-service.yaml
-│   ├── cache-deployment.yaml
-│   ├── cache-service.yaml
-│   └── ingress.yaml
+│   ├── _helpers.tpl          # 模板辅助函数（labels / fullname / selectorLabels）
+│   ├── web-deployment.yaml   # web Deployment + web Service（同文件，用 --- 分隔）
+│   ├── api-deployment.yaml   # api Deployment（见下方同名小节）
+│   ├── api-service.yaml      # api Service，端口命名 http（v6 的 ServiceMonitor 依赖它）
+│   ├── db-statefulset.yaml   # db headless Service + StatefulSet（同文件，用 --- 分隔）
+│   ├── cache-deployment.yaml # cache（Redis）Deployment
+│   ├── cache-service.yaml    # cache Service
+│   └── ingress.yaml          # Ingress（.Values.ingress.enabled 开关）
 └── .helmignore
 ```
+
+> [!note] 这棵树上的每个文件下面都有正文
+> `templates/` 下共 **8 个文件**，本章逐个给出完整内容（web / db 的 Service 与工作负载写在同一个文件里，省一次拆文件）。
+> **`configmap.yaml` / `secret.yaml` 不再重复给出**——沿用 [[v4-ConfigMap与Secret版]] 里 `app-config` / `app-secret` 的定义，
+> 本章只示范"把 v4 的资源模板化"这一件事，不重讲配置外部化。
 
 ## Chart.yaml
 
@@ -81,7 +82,7 @@ web:
 
 # Flask API 服务
 api:
-  image: { repository: flask-api, tag: latest }
+  image: { repository: flask-api, tag: "1.0.0" }   # ★ 与 v1/v4 同一个版本化镜像，不用 latest
   replicas: 2
   resources:
     requests: { cpu: "100m", memory: "128Mi" }
@@ -120,6 +121,11 @@ app.kubernetes.io/version: {{ .Chart.AppVersion }}
 {{- define "webapp.fullname" -}}
 {{- printf "%s-%s" .Release.Name .Chart.Name -}}
 {{- end -}}
+
+{{- define "webapp.selectorLabels" -}}
+app.kubernetes.io/name: {{ .Chart.Name }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end -}}
 ```
 
 ## templates/web-deployment.yaml（模板化示例）
@@ -152,11 +158,13 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ .Release.Name }}-web-svc
+  labels:
+    {{- include "webapp.labels" . | nindent 4 }}
 spec:
   type: ClusterIP
   selector:
     app: {{ .Release.Name }}-web
-  ports: [{ port: 80, targetPort: 80 }]
+  ports: [{ name: http, port: 80, targetPort: 80 }]
 ```
 
 ## templates/db-statefulset.yaml
@@ -206,6 +214,142 @@ spec:
         requests: { storage: {{ .Values.db.storage.size }} }
 ```
 
+## templates/api-deployment.yaml
+
+v4 里 api 是手写 YAML；这里把它模板化，标签分两层：`webapp.selectorLabels`（name + instance，release 级唯一）+ `app.kubernetes.io/component: api`（组内唯一）。
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-api
+  labels:
+    {{- include "webapp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  replicas: {{ .Values.api.replicas }}
+  selector:
+    matchLabels:
+      {{- include "webapp.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        {{- include "webapp.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+        app: {{ .Release.Name }}-api          # 短标签，给 kubectl get pods -l app=... 用
+    spec:
+      containers:
+      - name: api
+        image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
+        imagePullPolicy: IfNotPresent        # 镜像由 minikube image load 预置，不必每次拉取
+        ports: [{ containerPort: 5000 }]
+        env:
+        - { name: DATABASE_URL, value: "postgresql://{{ .Values.db.credentials.user }}:{{ .Values.db.credentials.password }}@{{ .Release.Name }}-db-svc:5432/{{ .Values.db.credentials.database }}" }
+        - { name: REDIS_URL, value: "redis://{{ .Release.Name }}-cache-svc:6379/0" }
+        readinessProbe:                       # 就绪探针：v4 里的 /health
+          httpGet: { path: /health, port: 5000 }
+        livenessProbe:
+          httpGet: { path: /health, port: 5000 }
+          initialDelaySeconds: 10
+        resources:
+          {{- toYaml .Values.api.resources | nindent 10 }}
+```
+
+## templates/api-service.yaml
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-api-svc          # 渲染为 myapp-api-svc，v6 压测用的就是这个名字
+  labels:
+    {{- include "webapp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api         # ★ v6 的 ServiceMonitor 靠这个标签选中本 Service
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "webapp.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+  ports: [{ name: http, port: 5000, targetPort: 5000 }]   # 命名端口 http，ServiceMonitor 引用它
+```
+
+> [!important] 为什么这个 Service 必须单独存在
+> ① v6 的 `ServiceMonitor.endpoints.port: http` 引用的是 **Service 的命名端口**，没有它就只能选中 web-svc（nginx:80，`/metrics` 返回 404）；
+> ② v6 压测命令访问 `myapp-api-svc.<ns>.svc.cluster.local:5000`，Service 名对不上就连不通；
+> ③ 只给 web-svc 打 `component: api` 是错的——标签要贴在真正提供指标的 api 上。
+
+## templates/cache-deployment.yaml
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-cache
+  labels:
+    {{- include "webapp.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.cache.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-cache
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-cache
+    spec:
+      containers:
+      - name: redis
+        image: "{{ .Values.cache.image.repository }}:{{ .Values.cache.image.tag }}"
+        ports: [{ containerPort: 6379 }]
+        resources:                            # 小服务直接写死；想参数化就照 web/api 加进 values.cache.resources
+          requests: { cpu: "50m", memory: "64Mi" }
+          limits:   { cpu: "100m", memory: "128Mi" }
+```
+
+## templates/cache-service.yaml
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-cache-svc
+  labels:
+    {{- include "webapp.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Release.Name }}-cache
+  ports: [{ name: redis, port: 6379, targetPort: 6379 }]
+```
+
+## templates/ingress.yaml
+
+```yaml
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-ingress
+  labels:
+    {{- include "webapp.labels" . | nindent 4 }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+  - host: {{ .Values.ingress.host }}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service: { name: {{ .Release.Name }}-web-svc, port: { number: 80 } }
+      - path: /api                        # 不设 rewrite-target，/api/* 原样转发（api 自己带前缀）
+        pathType: Prefix
+        backend:
+          service: { name: {{ .Release.Name }}-api-svc, port: { number: 5000 } }
+{{- end }}
+```
+
 ## 部署与验证
 
 ```bash
@@ -230,7 +374,7 @@ kubectl get pods,svc,ingress
 
 # 6. 升级（修改参数后）
 helm upgrade myapp ./webapp-chart --set api.replicas=3
-kubectl get pods -l app=myapp-api  # 应看到 3 个 Pod
+kubectl get pods -l app=myapp-api  # 应看到 3 个 Pod（标签来自 templates/api-deployment.yaml 的 `app: {{ .Release.Name }}-api`）
 
 # 7. 回滚
 helm rollback myapp 1
@@ -242,19 +386,23 @@ helm uninstall myapp
 
 ## 多环境部署
 
-```bash
-# values-dev.yaml
+```yaml
+# values-dev.yaml —— 只写覆盖项，其余从 values.yaml 继承（Helm 会做深合并）
 web: { replicas: 1 }
 api: { replicas: 1 }
 ingress: { host: dev.app.local }
+```
 
+```yaml
 # values-prod.yaml
 web: { replicas: 3 }
 api: { replicas: 3 }
 db:
   storage: { size: "50Gi" }
 ingress: { host: app.example.com }
+```
 
+```bash
 # dev 环境
 helm install myapp ./webapp-chart -f values-dev.yaml -n dev --create-namespace
 
@@ -293,6 +441,18 @@ helm install myapp ./webapp-chart \
 > [!important] 迁移式学习的完整闭环
 > 从 Docker Compose 的单文件编排 → K8S 的多资源声明式 → Helm Chart 的模板化打包。
 > 这就是从 Docker 用户到 K8S 工程师的迁移路径。
+
+---
+
+## 🎯 本版自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | `helm install myapp ./webapp-chart` 后 `kubectl get pods,svc` 能列出本 Chart 的 web / api / db / cache 四类资源，`helm list` 显示 `deployed` |
+| 🟡 进阶 | `helm upgrade myapp ./webapp-chart --set api.replicas=3` 后 `kubectl get pods -l app=myapp-api` 出现 3 个；`helm history myapp` 有 2 条；`helm rollback myapp 1` 后回到 2 个 |
+| 🔴 挑战 | 用 `values-dev.yaml` / `values-prod.yaml` 把同一 Chart 装进两个 namespace，`kubectl get pod -n dev`（web 1 副本）与 `-n prod`（web 3 副本）同时成立，并解释为什么覆盖文件只写几行就够（values.yaml 深合并） |
+
+---
 
 ## 相关笔记
 

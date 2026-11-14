@@ -48,6 +48,10 @@ services:
 
 ## K8S YAML（新增 ConfigMap 和 Secret）
 
+> [!note] `flask-api:1.0.0` 这个镜像从哪来
+> `docker build -t flask-api:1.0.0 .` → `minikube image load flask-api:1.0.0` → 容器 spec 写 `imagePullPolicy: IfNotPresent`，
+> 三步完整命令见 [[v1-Deployment基础版]] 的「镜像从哪来：先构建、再加载」一节，本版不重复。
+
 ```yaml
 # v4-config-secret.yaml
 
@@ -56,7 +60,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata: { name: app-config, labels: { app: webapp, version: v4 } }
 data:
-  DATABASE_URL: "postgres://user:$(POSTGRES_PASSWORD)@db-0.db-svc:5432/app"   # $(POSTGRES_PASSWORD) 由 K8S 变量替换注入
+  # 注意：ConfigMap 的值不做 $(VAR) 展开！连接串放在下方 api 的 env[].value 里组合
   REDIS_URL: "redis://cache-svc:6379"
   POSTGRES_USER: "user"
   POSTGRES_DB: "app"
@@ -84,16 +88,15 @@ spec:
     spec:
       containers:
       - name: api
-        image: flask-api:latest
+        image: flask-api:1.0.0
         envFrom:                       # ★ 批量注入 ConfigMap
         - configMapRef: { name: app-config }
         env:                           # ★ 单独注入 Secret 与依赖变量
         - name: POSTGRES_PASSWORD      # 被 $(...) 引用的变量必须定义在前
           valueFrom:
             secretKeyRef: { name: app-secret, key: POSTGRES_PASSWORD }
-        - name: DATABASE_URL           # 值里的 $(POSTGRES_PASSWORD) 在此被替换展开
-          valueFrom:                   # （env 项覆盖 envFrom 注入的未展开值）
-            configMapKeyRef: { name: app-config, key: DATABASE_URL }
+        - name: DATABASE_URL           # ★ $(VAR) 展开只作用于 env[].value 字面量，
+          value: "postgres://user:$(POSTGRES_PASSWORD)@db-0.db-svc:5432/app"  # 且被引用变量须定义在前；ConfigMap/valueFrom 取值都不展开
         ports: [{ containerPort: 5000 }]
         readinessProbe:
           httpGet: { path: /health, port: 5000 }
