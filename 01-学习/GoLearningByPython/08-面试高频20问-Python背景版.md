@@ -52,19 +52,19 @@ flowchart LR
 
 **🐍 Python 对比**：Python 的线程受 GIL 限制，无法真正并行；`asyncio` 是单线程协作式调度——一个协程不 `await` 就不会让出执行权。
 
-**🔵 Go 标准回答**：goroutine 是**用户态轻量级线程**，由 Go 运行时调度。初始栈约 2KB，可以创建数十万个。利用多核 CPU 真并行，通过 channel 通信。
+**🔵 Go 标准回答**：goroutine 是**用户态轻量级线程**，由 Go 运行时调度。初始栈 Linux 约 2KB、Windows 约 8KB（`stackMin` 2KB + `stackSystem` 4KB 后向上取整），可以创建数十万个。利用多核 CPU 真并行，通过 channel 通信。
 
 ```go
 // Go 可以轻松创建 10 万个 goroutine
 for i := 0; i < 100000; i++ {
     go func() { time.Sleep(time.Second) }()
 }
-// Python threading：每个线程约 8MB，10 万个不可能
+// Python threading：线程栈用平台默认值（Windows 约 1MB / Linux 约 8MB），10 万个不可能
 ```
 
 **⭐ 加分点**：
 - Go 运行时使用 **GMP 调度模型**：G（Goroutine）→ M（Machine/OS线程）→ P（Processor/逻辑处理器）
-- `runtime.GOMAXPROCS(n)` 控制并行度，默认等于 CPU 核心数
+- `runtime.GOMAXPROCS` 控制并行度；Go 1.25+ 默认按 CPU 亲和性与 cgroup 配额自动设定并动态更新，一般**不要手工覆盖**
 - goroutine 栈可以动态增长和收缩，不像线程固定大小
 - Go 没有 GIL，CPU 密集型任务也能真并行
 - Python 的 `asyncio.gather()` 等价于 `sync.WaitGroup` + goroutine
@@ -267,7 +267,7 @@ case result := <-doWork():
 
 **🐍 Python 对比**：Python 的 `TypeVar` 是类型提示，运行时完全忽略。
 
-**🔵 Go 标准回答**：Go 1.18+ 引入泛型，用 `[T any]` 语法声明类型参数。泛型在编译时实例化，没有运行时开销。
+**🔵 Go 标准回答**：Go 1.18+ 引入泛型，用 `[T any]` 语法声明类型参数。实现是 GC shape stenciling + 字典的混合方案（非完全单态化）：值类型常量的算术/比较基本零开销，但涉及类型参数的方法调用/装箱/类型断言有运行时字典查找与内联受限的代价。
 
 ```go
 func Min[T constraints.Ordered](a, b T) T {
@@ -278,7 +278,7 @@ func Min[T constraints.Ordered](a, b T) T {
 
 **⭐ 加分点**：
 - 类型约束：`comparable`（可比较）、`constraints.Ordered`（可排序）
-- Go 的泛型在编译时生成具体类型代码，性能无损失
+- Go 的泛型按 GC shape 做部分单态化 + 字典传递，不是“零开销/无损失”（面试说零开销会被追问）
 - Python 的泛型只是类型提示，不影响运行时行为
 - Go 泛型比 TypeScript 简单，比 Python 的 TypeVar 更强大
 - 接口可以作为类型约束（type sets）
@@ -351,7 +351,7 @@ func Min[T constraints.Ordered](a, b T) T {
 - `golang.org/x/sync/semaphore` 实现精确限流
 - `pprof` 监控 CPU 和内存
 - `sync.Pool` 复用对象减少 GC 压力
-- 配置 `GOMAXPROCS` 充分利用多核
+- 不要手工设 `GOMAXPROCS`（1.25+ 会按 cgroup 配额自动调整）；需要固定并行度时才用同名环境变量
 - 避免 goroutine 泄漏：用 `context` + `select`
 
 ---
@@ -375,12 +375,14 @@ func Min[T constraints.Ordered](a, b T) T {
 
 **🐍 Python 对比**：Python 的 None 是单例对象，所有 None 等价。
 
-**🔵 Go 标准回答**：Go 的 nil **有类型**，不同类型的 nil 不可互赋值。
+**🔵 Go 标准回答**：Go 的 nil 是**无类型**预声明标识符，类型来自被赋值的变量/上下文；只能赋给指针/map/slice/channel/func/interface，不同类型变量互不兼容。
 
 ```go
 var p *int = nil
-var s []int = nil
-// p == s  // ❌ 编译错误：类型不同
+var q *string = nil
+// p == q  // ❌ 编译错误：*int 与 *string 类型不同
+var a, b []int
+// a == b  // ❌ 编译错误：slice 不可比较（只能与 nil 比）——这是另一个独立原因
 ```
 
 **⭐ 加分点**：
@@ -445,7 +447,7 @@ var s []int = nil
 > 这是 Go 面试最高频的坑题。`var i error = nil`（interface 本身为 nil）和 `var p *MyError = nil; var i error = p`（interface 持有 nil 指针）**行为不同**——后者 `i != nil`！
 
 > [!warning] **坑 3：面试时把 goroutine 说成轻量级线程就停了**
-> 要继续说：goroutine 初始栈 2KB（线程 1-8MB），由 Go runtime 调度器（GMP 模型）在用户态调度，创建/切换成本约 200ns。对比 Python asyncio 协程的创建成本。
+> 要继续说：goroutine 初始栈 2KB（Linux）/8KB（Windows），线程栈 1MB（Windows）～8MB（Linux），由 Go runtime 调度器（GMP 模型）在用户态调度，创建/切换成本约 200ns。对比 Python asyncio 协程的创建成本。
 
 > [!warning] **坑 4：回答 channel 问题时忘记 close 规则**
 > 面试官常问"谁应该关闭 channel"。记住：**只有发送方关闭 channel**，接收方不应关闭。多个发送方时用额外协调 channel 来关闭。
@@ -459,9 +461,11 @@ var s []int = nil
 
 | 层次 | 检查项 |
 |------|--------|
-| 🟢 基础 | 能回答 10 道以上基础面试题，理解 Go 和 Python 的核心差异 |
-| 🟡 进阶 | 能用三段式回答任意 5 道面试题，给出代码示例 |
-| 🔴 挑战 | 能结合 Python 背景，解释 Go 设计哲学的取舍，展示迁移视角 |
+| 🟢 基础 | 不看笔记，对 Q1-Q5 各用 30 秒说完「Python 对比 → Go 回答 → 加分点」三段（手机计时，超 60 秒重来） |
+| 🟢 基础 | 能默写 Q2 的 GMP 三要素，并说出 goroutine 初始栈 Linux 2KB / Windows 8KB |
+| 🟡 进阶 | 能把 Q13 泛型答成「GC shape stenciling + 字典，不是完全单态化」，并说出方法调用为何有额外开销 |
+| 🟡 进阶 | 能白板写出 Q19 的 nil interface 陷阱：`var p *MyError = nil; var i error = p; i != nil`，并解释为什么 |
+| 🔴 挑战 | 随机抽 5 题录音 3 分钟，回放自查：是否出现「Python 也能做」这类减分表述、每答是否都有代码级细节 |
 
 ---
 

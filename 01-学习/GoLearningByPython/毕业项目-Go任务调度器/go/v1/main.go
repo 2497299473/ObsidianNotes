@@ -1,4 +1,4 @@
-// v1-基础语法迁移版
+﻿// v1-基础语法迁移版
 // 从 Python 任务调度器迁移为 Go，只改语法不改架构
 // 对比 Python: python v1_original.py
 package main
@@ -38,6 +38,7 @@ func runTask(name string, duration, successRate float64) Result {
 }
 
 func main() {
+	rand.Seed(42) // 固定种子：任务成败可复现，便于验收对照（去掉后恢复随机）
 	fmt.Println("=== 任务调度器 v1 ===")
 	tasks := []taskDef{
 		{"发送邮件", 2, 0.9},

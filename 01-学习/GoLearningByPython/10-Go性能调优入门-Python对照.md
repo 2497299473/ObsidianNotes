@@ -115,11 +115,12 @@ func BenchmarkSlicePrealloc(b *testing.B) {
 ```
 
 ```bash
-# BenchmarkSliceAppend-8    1000    1234567 ns/op    262144 B/op    20 allocs/op
-# BenchmarkSlicePrealloc-8  2000     654321 ns/op     80000 B/op     1 allocs/op
+# 本机实测（Ryzen 7 5800H · Go 1.27.4 · go test -bench . -benchmem -count=1）：
+# BenchmarkSliceAppend-16      13214    115160 ns/op    357627 B/op    19 allocs/op
+# BenchmarkSlicePrealloc-16    31130     39434 ns/op     81920 B/op     1 allocs/op
 ```
 
-**结论**：预分配容量减少 80% 内存分配，性能提升 50%。
+**结论**：预分配把每题操作的字部分配从 357627 B 降到 81920 B（省 77%）、分配次数从 19 降到 1，单次耗时降到约 1/3（快约 2.9 倍）。具体数字随机器/Go 版本变化，但“allocs/op 降到 1”这个信号不会变。
 
 ---
 
@@ -230,6 +231,11 @@ func processWithPool() {
     defer bufferPool.Put(buf)  // 用完归还
     // 使用 buf...
 }
+
+// 注意：defer 把归还拖到函数结束，整段时间里这块内存都无法被其他 goroutine 复用。
+// 函数体很长、或 buf 只在前半段用时，用完立即归还：
+//     bufferPool.Put(buf)
+//     buf = nil  // 后续代码不再持有，避免误用已归还的对象
 ```
 
 **注释**：`sync.Pool` 是对象复用池，减少 GC 压力——对象从池中取出用完放回，不会成为垃圾。Python 无标准库等价物。

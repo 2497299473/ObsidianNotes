@@ -49,7 +49,10 @@ FROM golang:1.22-alpine AS builder
 WORKDIR /app
 
 # 先拷贝依赖文件（利用 Docker 缓存层）
-COPY go.mod go.sum ./
+# 本项目无第三方依赖，只有 go.mod 没有 go.sum。
+# 坑：COPY 的通配符匹配不到文件会直接失败（moby#13045），所以不能写 go.sum*；
+# 日后真加了依赖时 go.sum 会自动出现，那时再改成 COPY go.mod go.sum ./ 或 COPY go.* ./
+COPY go.mod ./
 RUN go mod download
 
 # 拷贝源码
@@ -77,7 +80,7 @@ COPY --from=builder /app/scheduler .
 RUN adduser -D -u 1001 appuser
 USER appuser
 
-EXPOSE 8080
+# 本程序是批处理 CLI（跑完即退出），不监听端口，无需 EXPOSE
 
 ENTRYPOINT ["./scheduler"]
 ```
@@ -114,12 +117,12 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: scheduler
-    ports:
-      - "8080:8080"
+    # 批处理容器：跑完就退出，没有端口可映射，也不需要 restart 策略
+    # （用 restart: unless-stopped 会让容器反复重启、重跑同一批任务）
+    restart: "no"
     environment:
-      - GOMAXPROCS=4
       - SCHEDULER_MAX_WORKERS=10
-    restart: unless-stopped
+      # 不要写死 GOMAXPROCS：Go 1.25+ 会按 cpus 配额（这里 0.5 核）自动设定并动态更新
     deploy:
       resources:
         limits:
@@ -154,8 +157,8 @@ docker images scheduler
 # scheduler    latest    15.2MB
 # 对比：Python Flask 镜像通常 100-200MB
 
-# 运行容器
-docker run -d --name scheduler -p 8080:8080 scheduler:latest
+# 运行容器（前台运行才能看到输出；批处理不需要 -d 和 -p）
+docker run --rm scheduler:latest
 
 # 查看日志
 docker logs scheduler
@@ -169,28 +172,33 @@ docker stop scheduler && docker rm scheduler
 ## K8S 部署（联动 K8SLearningByDocker）
 
 ```yaml
-# k8s/deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
+# k8s/job.yaml
+# ★ 本程序是批处理任务（建 4 个任务→跑完打印统计→退出），不是常驻服务！
+# 用 Job 而非 Deployment：无端口、无 /health 探针、无 replicas（跑完即退出，配探针会 CrashLoopBackOff）
+apiVersion: batch/v1
+kind: Job
 metadata:
   name: scheduler
   labels:
     app: scheduler
 spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: scheduler
   template:
     metadata:
       labels:
         app: scheduler
     spec:
+      restartPolicy: Never   # 批处理任务失败不原地重启
+      securityContext:
+        runAsNonRoot: true   # 与镜像里的 USER appuser（uid 1001）配套
+        runAsUser: 1001
       containers:
         - name: scheduler
-          image: yourname/scheduler:v1.0.0
-          ports:
-            - containerPort: 8080
+          image: yourname/scheduler:v6   # 与下面的 docker push 一致，否则 ImagePullBackOff
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true   # 本程序不写盘；以后要写文件就挂 emptyDir
+            capabilities:
+              drop: ["ALL"]
           resources:
             limits:
               cpu: "500m"
@@ -198,25 +206,10 @@ spec:
             requests:
               cpu: "100m"
               memory: "64Mi"
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: 8080
-            initialDelaySeconds: 5
-            periodSeconds: 10
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: scheduler
-spec:
-  selector:
-    app: scheduler
-  ports:
-    - port: 8080
-      targetPort: 8080
-  type: ClusterIP
 ```
+
+> [!important] CLI → 常驻服务是 v5→v6 缺失的一步
+> 上面的 scheduler 跑完就退出，所以用 Job。若要当服务部署（Deployment + 探针 + 多副本），需先给程序加一个最小 `http.Server`（`/health` 返回 200、`/run` 触发一次 RunAll）让它常驻监听，再配 EXPOSE/livenessProbe/replicas——这一步本版本未做，列为进阶练习。
 
 ```bash
 # 推送到镜像仓库
@@ -224,8 +217,9 @@ docker tag scheduler:latest yourname/scheduler:v6
 docker push yourname/scheduler:v6
 
 # K8S 部署（K8SLearningByDocker 路径会详细讲解）
-kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/job.yaml
 kubectl get pods -l app=scheduler
+# 等 Job 跑完再看日志：kubectl wait --for=condition=complete job/scheduler
 ```
 
 > [!tip] DevOps 链路

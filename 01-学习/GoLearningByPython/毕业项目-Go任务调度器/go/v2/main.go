@@ -1,4 +1,4 @@
-// v2-struct与方法版
+﻿// v2-struct与方法版
 // 把 v1 的独立函数重构为 struct + method
 // 引入 NewXxx() 构造函数和 String() Stringer 接口
 package main
@@ -98,6 +98,7 @@ func (s Scheduler) Stats() (succeeded, total int) {
 }
 
 func main() {
+	rand.Seed(42) // 固定种子：任务成败可复现，便于验收对照（去掉后恢复随机）
 	fmt.Println("=== 任务调度器 v2 ===")
 	scheduler := NewScheduler()
 	scheduler.AddTask(NewTask("发送邮件", 2, 0.9))

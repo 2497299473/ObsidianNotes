@@ -302,12 +302,12 @@ class Temperature:
 ```
 
 ```go
-// Go: GetXxx / SetXxx 约定
+// Go: 属性用无前缀方法 Fahrenheit() + SetFahrenheit()
 type Temperature struct {
     celsius float64  // 小写 = 包私有
 }
 
-// Getter：GetXxx（Go 约定：如果字段名大写则不需要 Getter）
+// Getter：直接用属性名 Fahrenheit()——Go 约定不加 Get 前缀（不要写 GetFahrenheit）
 func (t Temperature) Fahrenheit() float64 {
     return t.celsius * 9/5 + 32
 }
@@ -511,7 +511,7 @@ func main() {
 | 继承 | `class Child(Parent)` | struct embedding |
 | 多重继承 | `class C(A, B)` | 多重嵌入 |
 | 构造函数 | `__init__` | `NewXxx()` 约定 |
-| 属性 | `@property` | `GetXxx()` / `SetXxx()` |
+| 属性 | `@property` | `Fahrenheit()` / `SetFahrenheit()`（**不要**加 `Get` 前缀） |
 | 魔术方法 | `__str__`, `__eq__` 等 | 无（用普通方法替代） |
 | 资源管理 | `with` 语句 | `defer` |
 | 异常处理 | `try/except` | 多返回值 + error（下篇详讲） |

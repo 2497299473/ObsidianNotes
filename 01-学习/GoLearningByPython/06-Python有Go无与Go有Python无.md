@@ -428,15 +428,18 @@ print(append_one())  # [1, 1] ← 第二个调用继承了第一个调用的 []�
 ```
 
 ```go
-// Go 没有这个问题！每次调用都创建新的默认值
+// Go 根本没有默认参数：调用方必须显式传参（可选参数用 Options struct + 零值兜底），
+// 所以不存在"默认值只创建一次"这类陷阱——这是机制差异，不是"Go 更安全"的证明。
 func appendOne(items []int) []int {
     return append(items, 1)
 }
-// 每次调用都是独立的
+
+// appendOne()     // ❌ 编译错误：not enough arguments in call to appendOne
+// appendOne(nil)  // ✅ nil slice 可以 append，返回 [1]
 ```
 
-> [!tip] 这是 Go 比 Python 更安全的点
-> Go 的默认值（通过零值）每次调用都是新的，没有 Python 的可变默认参数陷阱。
+> [!tip] 结论别说过头
+> Python 有默认参数、Go 没有——所以 Python 需要 `items=None` 惯用法来避免可变默认值陷阱，而 Go 连"默认值"这个概念都不存在。但 `append` 另有坑：若传入的是**带余量的 slice**，`append` 会直接改写共享的底层数组（详见 02 篇「切片共享底层数组」）。
 
 ---
 
@@ -448,8 +451,10 @@ func appendOne(items []int) []int {
 
 ```go
 // Go: goroutine 是多核真并行，无 GIL
+// Go 1.25+ 默认按 cgroup CPU 配额自动设定 GOMAXPROCS 并随配额变化更新；
+// 不要手工 GOMAXPROCS(NumCPU())——那会禁用自动更新，在限额容器里反而负优化。
+// 需固定并行度时用 GOMAXPROCS 环境变量。
 func main() {
-    runtime.GOMAXPROCS(runtime.NumCPU())  // 利用所有 CPU 核心
     for i := 0; i < 100000; i++ {
         go func() { /* 并发任务 */ }()
     }
@@ -749,8 +754,8 @@ func init() {
 > [!warning] **坑 5：Go 没有 `pass` 关键字**
 > Python 的空函数体用 `pass`，Go 用空的花括号 `{}`。
 
-> [!warning] **坑 6：Go 的 `nil` 有类型**
-> `var p *int = nil` 和 `var s []int = nil` 的 `nil` 类型不同。不能把 `nil` slice 赋值给 `nil` 指针。
+> [!warning] **坑 6：Go 的 `nil` 是无类型值**
+> `nil` 本身无类型，类型来自上下文。`var p *int = nil` 和 `var s []int = nil` 是不同类型的变量，不能把 `nil` slice 赋值给 `nil` 指针；且 slice/map/func 只能与 nil 比较，彼此不可比较。
 
 > [!warning] **坑 7：Python 的 `raise` 没有 Go 等价物**
 > Go 的 `panic` 不等于 Python 的 `raise`。`panic` 是程序致命错误，正常错误用 `return error`。

@@ -1,4 +1,4 @@
-// v3-接口与错误处理版
+﻿// v3-接口与错误处理版
 // 引入 Runnable 接口和显式错误处理
 // 用自定义错误类型和 errors.Is/errors.As 替代 Python 的 try/except
 package main
@@ -62,6 +62,13 @@ func (t *Task) Name() string { return t.name }
 
 // Run 返回 (*Result, error)——Go 错误处理核心模式
 func (t *Task) Run() (*Result, error) {
+	// 参数校验失败 → 返回自定义错误类型 *TaskError
+	// （没有这一支，下面 errors.As 就是永远不会执行的死代码）
+	if t.duration < 0 || t.successRate < 0 || t.successRate > 1 {
+		return nil, &TaskError{TaskName: t.name,
+			Message: fmt.Sprintf("参数非法: duration=%.1f, successRate=%.2f",
+				t.duration, t.successRate)}
+	}
 	fmt.Printf("[INFO] 开始: %s (预计 %.1fs)\n", t.name, t.duration)
 	time.Sleep(time.Duration(t.duration * float64(time.Second)))
 	success := rand.Float64() < t.successRate
@@ -148,11 +155,16 @@ func (s *Scheduler) RunAll() {
 				})
 				continue
 			}
-			// errors.As 提取自定义错误类型
+			// errors.As 提取自定义错误类型：target 必须传 &te（te 是 *TaskError，
+			// 要传 **TaskError 才能让 errors.As 把找到的值写回 te）
 			var te *TaskError
 			if errors.As(err, &te) {
 				s.logger.Log("ERROR", fmt.Sprintf("TaskError: %s - %s",
 					te.TaskName, te.Message))
+				s.results = append(s.results, &Result{
+					TaskName: task.Name(), Success: false,
+					Timestamp: time.Now(),
+				})
 			}
 			continue
 		}
@@ -173,13 +185,15 @@ func (s Scheduler) Stats() (succeeded, failed int) {
 }
 
 func main() {
+	rand.Seed(42) // 固定种子：任务成败可复现，便于验收对照（去掉后恢复随机）
 	fmt.Println("=== 任务调度器 v3 ===")
 	// 依赖注入：传入 Logger 实现
 	scheduler := NewScheduler(ConsoleLogger{})
 	scheduler.AddTask(NewTask("发送邮件", 2, 0.9))
-	scheduler.AddTask(NewTask("生成报告", 3, 0.5)) // 低成功率
+	scheduler.AddTask(NewTask("生成报告", 3, 0.0)) // 成功率 0：每次必失败，errors.Is 分支必触发
 	scheduler.AddTask(NewDelayedTask("数据备份", 2, 0.95, 1.0))
 	scheduler.AddTask(NewTask("日志清理", 1, 1.0))
+	scheduler.AddTask(NewTask("导入数据", 0.5, 1.5)) // 成功率 > 1：参数非法，errors.As 分支必触发
 
 	scheduler.RunAll()
 	succ, fail := scheduler.Stats()

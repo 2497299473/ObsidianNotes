@@ -76,7 +76,9 @@ package main
 import (
     "encoding/json"
     "fmt"
+    "log"
     "net/http"
+    "time"
 )
 
 func usersHandler(w http.ResponseWriter, r *http.Request) {
@@ -87,6 +89,8 @@ func usersHandler(w http.ResponseWriter, r *http.Request) {
             "users": []string{"Alice", "Bob"},
         })
     case http.MethodPost:
+        // 限制 body 大小（1MB），否则超大请求体会直接把内存吃满
+        r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
         var data map[string]any
         if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
             http.Error(w, "invalid JSON", http.StatusBadRequest)
@@ -102,8 +106,14 @@ func usersHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
     http.HandleFunc("/api/users", usersHandler)
+    // 生产环境不要直接用 http.ListenAndServe：它的默认 Server 没有任何超时，
+    // 慢速请求（Slowloris）会把连接一直占着。至少设 ReadHeaderTimeout。
+    srv := &http.Server{
+        Addr:              ":8080",
+        ReadHeaderTimeout: 5 * time.Second,
+    }
     fmt.Println("Server running on :8080")
-    http.ListenAndServe(":8080", nil)
+    log.Fatal(srv.ListenAndServe())
 }
 ```
 
@@ -201,7 +211,7 @@ var parsed User
 json.Unmarshal(jsonBytes, &parsed)
 ```
 
-**注释**：Python 的 json 操作 dict，Go 的 encoding/json 操作 struct。`json:"fieldName"` 标签是 Go 独有的编译时元数据，Python 无等价物。
+**注释**：Python 的 json 操作 dict，Go 的 encoding/json 操作 struct。`json:"fieldName"` 标签是**运行时**由 `reflect` 读取并缓存在类型信息里的字符串（不是编译时元数据）；Python 侧最接近的是 `dataclasses.field(metadata=...)`，但标准库 `json` 不读它。
 
 ---
 
@@ -281,27 +291,45 @@ with engine.connect() as conn:
 
 ```go
 import (
+    "context"
     "database/sql"
     _ "github.com/lib/pq"  // PostgreSQL 驱动
 )
 
+// sql.Open 只校验参数、不建立连接——真正的错误要等第一次 Ping/Query 才暴露
 db, err := sql.Open("postgres", "postgresql://user:pass@localhost/db")
-if err != nil { panic(err) }
+if err != nil {
+    return fmt.Errorf("打开数据库: %w", err)
+}
 defer db.Close()
 
-rows, err := db.Query("SELECT id, name FROM users WHERE age > $1", 18)
-if err != nil { panic(err) }
+// 立刻验证连接可用（等价 SQLAlchemy 的 engine.connect()）
+if err := db.PingContext(ctx); err != nil {
+    return fmt.Errorf("连接数据库: %w", err)
+}
+
+rows, err := db.QueryContext(ctx, "SELECT id, name FROM users WHERE age > $1", 18)
+if err != nil {
+    return fmt.Errorf("查询 users: %w", err)
+}
 defer rows.Close()
 
 for rows.Next() {
     var id int
     var name string
-    rows.Scan(&id, &name)
+    // Scan 的错误必须检查：字段类型不对时会静默留下零值
+    if err := rows.Scan(&id, &name); err != nil {
+        return fmt.Errorf("扫描行: %w", err)
+    }
     fmt.Println(id, name)
+}
+// 循环结束后必须查 rows.Err()：网络中断/查询取消只在这里报告，否则结果静默截断
+if err := rows.Err(); err != nil {
+    return fmt.Errorf("遍历结果集: %w", err)
 }
 ```
 
-**注释**：Go 的 `database/sql` 是标准接口，具体驱动用空白导入 `_ "github.com/lib/pq"`。`$1` 是 PostgreSQL 占位符（Python 用 `:age` 命名参数）。Go 需手动 `rows.Scan` 扫描到变量。
+**注释**：Go 的 `database/sql` 是标准接口，具体驱动用空白导入 `_ "github.com/lib/pq"`。`$1` 是 PostgreSQL 占位符（Python 用 `:name` 命名参数）。Go 需手动 `rows.Scan` 扫描到变量（**Scan 与 `rows.Err()` 的错误都不能丢**，否则列类型不符或连接中断时会静默拿到零值/截断结果），且 `sql.Open` 不建连接，要用 `PingContext` 验证。
 
 > [!tip] 何时用 ORM
 > Go 常用 ORM：**GORM**（对标 SQLAlchemy）、**sqlx**（轻量 SQL+struct 映射）、**Ent**（类型安全）。
@@ -341,7 +369,7 @@ for rows.Next() {
 | `pickle` | `encoding/gob` | Go 的序列化格式 |
 | `struct` | `encoding/binary` | 二进制打包 |
 | `collections` | 无直接等价 | Go 无 deque/Counter |
-| `itertools` | 无直接等价 | Go 用 channel 替代 |
+| `itertools` | 无直接等价 | Go 无惰性迭代器：用切片、自定义 `Next()` 或 `iter.Seq`（Go 1.23+）实现 |
 | `cProfile` | `net/http/pprof` | 性能分析 |
 
 ---

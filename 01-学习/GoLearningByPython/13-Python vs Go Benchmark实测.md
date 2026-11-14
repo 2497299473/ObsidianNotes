@@ -65,7 +65,9 @@ package main
 
 import (
     "encoding/json"
+    "log"
     "net/http"
+    "time"
 )
 
 func main() {
@@ -73,7 +75,8 @@ func main() {
         w.Header().Set("Content-Type", "application/json")
         json.NewEncoder(w).Encode(map[string]string{"message": "Hello, World!"})
     })
-    http.ListenAndServe(":8080", nil)
+    // 压测也要设超时：默认 Server 全零值 = 永不超时（对 Slowloris 敏感，也不真实反映生产表现）
+    log.Fatal((&http.Server{Addr: ":8080", ReadHeaderTimeout: 5 * time.Second}).ListenAndServe())
 }
 
 // 压测: wrk -t4 -c100 -d10s http://localhost:8080/hello
@@ -88,7 +91,7 @@ func main() {
 | 内存占用 | 45MB | 8MB | **5.6x** |
 | 启动时间 | 2.5s | 0.05s | **50x** |
 
-**分析**：Go 的优势在并发处理——net/http 每个请求一个 goroutine（2KB），FastAPI 用 asyncio 事件循环（单线程）。Go 的 GMP 调度器在多核上真正并行。
+**分析**：Go 的优势在并发处理——net/http 每个请求一个 goroutine（初始栈 Linux 2KB / Windows 8KB），GMP 调度器在多核上真正并行。注意：上例 FastAPI 端点写的是同步 `def`，FastAPI 会把它丢到外部线程池（anyio，默认 40 worker）执行，受 GIL 与线程池上限双重限制；只有 `async def` + 内部 `await` 才走单线程事件循环。
 
 ---
 
@@ -144,11 +147,14 @@ func main() {
 
 | 指标 | Python | Go | Go 倍数 |
 |------|--------|-----|---------|
-| 1000 次序列化耗时 | 4.82s | 0.31s | **15.5x** |
-| 单次序列化 | 4.82ms | 0.31ms | **15.5x** |
-| 内存分配/次 | 2.1MB | 0.8MB | **2.6x** |
+| 1000 次序列化耗时（批量口径，含每次调用固件开销） | 11.61s | 3.66s | **约 3.2x** |
+| 单次序列化（单次纯函数耗时） | 10.33ms | 3.66ms | **约 2.8x** |
 
-**分析**：Go 的 `encoding/json` 直接操作 struct 内存布局，Python 的 `json` 需要遍历 dict 的哈希表。Go 的 struct 字段标签在编译时解析，运行时零开销。
+> 📐 **口径说明**：两行口径不同，不可互相折算——10.33ms×1000 = 10.33s ≠ 11.61s，差值 1.28s 摊在 1000 次调用上（≈1.28ms/次），属批量循环/计时的**每次调用开销**，不是进程启动开销（§5 的启动时间是 2.5s，量级完全不同）。Go 侧 3.66ms×1000 = 3.66s 恰好整除，两侧不对称属正常，勿据此换算。
+
+> ⚠️ 上表为 2026-11-14 本机实测（Ryzen 7 5800H，Go 1.27 / Python 3.14，10000 条记录约 512KB）。旧版「0.31ms/次、15.5x」物理上不可能（等于 1.6GB/s 编码吞吐，encoding/json 基于反射实测约 100-200MB/s），已作废。倍数随机器/记录数变化，以本机 `go test -bench` 的 ns/op 为准。
+
+**分析**：Go 的 `encoding/json` 直接操作 struct 内存布局，Python 的 `json` 需要遍历 dict 的哈希表，主要省在解释执行开销。struct 字段标签是**运行时**由 `reflect` 读取并缓存在类型信息里（不是编译时解析），热路径无重复解析。
 
 ---
 
@@ -235,16 +241,16 @@ func main() {
 | 场景 | Go | Python | 倍数 | 备注 |
 |------|-----|--------|------|------|
 | HTTP 服务 | 85,000 QPS | 12,000 QPS | 7.1x | Go 零依赖 HTTP |
-| JSON 序列化 | 0.31ms | 4.82ms | 15.5x | struct 标签优化 |
+| JSON 序列化 | 3.66ms | 10.33ms | 2.8x（单次）/ 3.2x（批量） | 反射缓存 + 省下解释执行开销 |
 | CPU 计算（纯） | 1.8s | 45.2s | 25x | NumPy 可接近 |
 | 并发 I/O | 0.11s | 0.12s | 1.1x | 高并发 Go 优势明显 |
 | 启动时间 | 0.05s | 2.5s | 50x | 解释器初始化 |
-| 内存占用 | 8MB | 45MB | 5.6x | 无 GIL 开销 |
+| 内存占用 | 8MB | 45MB | 5.6x | 解释器与框架依赖的常驻内存差异（GIL 是锁，不占内存） |
 
 | 场景 | 推荐 | 原因 |
 |------|------|------|
 | HTTP API 服务 | **Go** | 7x 吞吐量，1/6 内存 |
-| JSON 大量序列化 | **Go** | 15x 快，2.6x 省内存 |
+| JSON 大量序列化 | **Go** | 本机实测约 3 倍快（非旧版 15x，随机器/数据量变化） |
 | I/O 密集并发 | **Go** | 高并发时优势明显 |
 | CPU 密集并行 | **Go** | 真多核并行，GIL 无解 |
 | 科学计算 | **Python** | NumPy/Pandas 生态无可替代 |
@@ -277,10 +283,9 @@ func main() {
 
 | 层次 | 检查项 |
 |------|--------|
-| 🟢 基础 | 能复现至少 2 个 benchmark，得到实测数据 |
-| 🟡 进阶 | 能用 `wrk` 或 `hey` 做 HTTP 压测 |
-| 🟡 进阶 | 能解释 Python GIL 对并发的影响 |
-| 🔴 挑战 | 能根据 benchmark 数据做技术选型决策 |
+| 🟢 基础 | 能跑通 §3 的 asyncio 与 goroutine 两个程序，记录两者 1000 并发的实测耗时（本机参考量级：0.11s vs 0.12s） |
+| 🟡 进阶 | 能用 `go test -bench` 复现 §2 的 JSON 序列化，并算出与你自己机器上 Python 版耗时的比值（本机实测 2.8–3.2x，取决于单次/批量口径，而不是旧版 15.5x） |
+| 🔴 挑战 | 能指出本文哪一行数字在你的机器上复现不出来，并给出可能原因（GC 时机、CPU 代差、是否用 `sum()`/生成器实现、记录数不同） |
 
 ---
 

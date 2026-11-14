@@ -101,6 +101,10 @@ lib.Greet.restype = ctypes.c_void_p  # 用 c_void_p 保留原始指针，便于�
 ptr = lib.Greet(b"World")
 greeting = ctypes.cast(ptr, ctypes.c_char_p).value
 print(greeting.decode())  # Hello, World! (from Go)
+# 凡是传指针的函数都必须设 argtypes（ctypes 最容易踩的坑）：
+# 不设时按 C int(32位) 转参，64 位堆地址会 OverflowError 或静默截断后 free 非法指针
+lib.Free.argtypes = [ctypes.c_void_p]
+lib.Free.restype = None
 lib.Free(ptr)  # C.CString 的内存必须手动释放，否则泄漏
 ```
 
@@ -137,7 +141,12 @@ func main() {
     inputJSON, _ := json.Marshal(input)
 
     // 启动 Python 进程
-    cmd := exec.Command("python", "analyze.py")
+    // 坑：命令名别硬编码 "python"——Linux/macOS 常见只有 python3，Windows 常装 py 启动器
+    pythonBin := "python3"
+    if _, err := exec.LookPath(pythonBin); err != nil {
+        pythonBin = "python" // 回退；若只有 py 启动器，改成 "py" 并在参数里补 "-3"
+    }
+    cmd := exec.Command(pythonBin, "analyze.py")
     cmd.Stdin = bytes.NewReader(inputJSON)
     var stderr bytes.Buffer
     cmd.Stderr = &stderr
@@ -175,7 +184,7 @@ result = {
 print(json.dumps(result))
 ```
 
-**注释**：Go 通过 `os/exec` 启动 Python 进程，stdin/stdout 传递 JSON 数据。这种方式简单可靠，适合偶尔调用 Python 的场景。
+**注释**：Go 通过 `os/exec` 启动 Python 进程，stdin/stdout 传递 JSON 数据。这种方式简单可靠，适合偶尔调用 Python 的场景；命令名用 `exec.LookPath` 探测可避免"本机能跑、换台机器就找不到 python"。
 
 ---
 
@@ -270,7 +279,7 @@ func main() {
 | 场景 | 推荐方案 | 原因 |
 |------|---------|------|
 | Go 服务调用 Python ML 模型 | **HTTP/gRPC** | 解耦，独立部署，调试方便 |
-| Go 调用 Python 密集计算 | **cgo + Python C API** | 避免 IPC 开销 |
+| Go 调用 Python 密集计算 | cgo + Python C API（**仅限单进程内、可接受 GIL 串行、能承担崩溃风险**；多数场景仍应选 gRPC/HTTP + 批处理） | 避免 IPC 开销，但代价高 |
 | Python 调用 Go 高性能函数 | **ctypes + .so** | Go 做计算密集型 |
 | 共享 C 库 | **cgo + ctypes** | 两边都调同一个 C 库 |
 | 混合部署（微服务） | **HTTP/gRPC** | 生产级方案，独立扩展 |
@@ -304,11 +313,30 @@ func main() {
 > Go 有 GC，Python 有引用计数。跨语言传递对象时，需明确内存所有权——Go 分配的内存由 Go 管理，Python 分配的内存由 Python 管理。
 
 > [!warning] **坑 3：线程模型冲突**
-> Python 的 GIL 和 Go 的 goroutine 调度模型不同。在 Go 中启动 Python 解释器时，需注意 GIL 的获取和释放。
+> Python 的 GIL 和 Go 的 goroutine 调度模型不同。嵌入解释器需 `Py_Initialize` 且所有 Python 调用要持有 GIL（串行）；Python 崩溃会带走整个 Go 进程；CGO 一开交叉编译即失效。这与 §0“不建议嵌入解释器”一致——密集计算也优先 gRPC/HTTP + 批处理。
 
 ---
 
 ## 🎯 练习
+
+> [!warning] 前置检查（Windows 默认环境多半过不了）
+> ```bash
+> go env CGO_ENABLED     # 没装 gcc 时 Go 会自动关掉 cgo（本机实测为 0）；编共享库要临时设 1
+> gcc --version          # 报 "not found" 就做不了练习 1
+> protoc --version       # 练习 3 需要
+> ```
+> 没装 MinGW-w64/TDM-GCC 时，即使 `CGO_ENABLED=1` 也会报 `cgo: C compiler "gcc" not found`。三条出路：装 gcc（MSYS2 的 mingw64 工具链，或 TDM-GCC，装完把 bin 目录加进 PATH）、改用 WSL、或做下面的替代练习。
+> 另：Windows 上 `-buildmode=c-shared` 产出的是 **DLL**（PE 格式），建议直接写 `-o go_lib.dll` + `CDLL("./go_lib.dll")`，别照搬 Linux 的 `.so` 命名。
+
+**无 gcc 也能做的替代练习**：练习 2（stdin/stdout）完全不依赖 cgo——Go 侧 `go run main.go`，Python 侧只改 `analyze.py` 的计算逻辑，再用 `time` 对比两侧耗时，就能拿到本篇 90% 的学习收益。
+
+每题的最小验收判据：
+
+| 练习 | 判定为通过的条件 |
+|------|----------------|
+| 1 ctypes 调 Go | 共享库生成成功（Windows 为 `.dll`）→ `Sum(3, 5)` 打印 `8` → `Free` 后进程退出码 0 |
+| 2 进程通信 | 输入 `[1,2,3,4,5]` 时 Go 侧打印 `Mean: 3.00, StdDev: 1.58` |
+| 3 gRPC | `protoc` 生成 `*_pb2.py` → Python 客户端打印 `Mean: 2.0` |
 
 ### 练习 1：ctypes 调 Go
 

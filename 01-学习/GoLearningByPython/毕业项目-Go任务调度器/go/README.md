@@ -56,3 +56,19 @@ make build-all                    # 交叉编译
 | v3 | 接口+错误 | Runnable 接口、errors.Is/As、%w 包装 | try/except → error + interface |
 | v4 | 并发+channel | goroutine、channel、context、信号量 | asyncio → goroutine |
 | v5 | 测试+部署 | go test、表格驱动测试、交叉编译 | pytest → go test |
+
+---
+
+## 🎯 源码自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 依次 `cd v1 && go run main.go` 到 `v4`，四个版本都能跑完并打印 `=== 完成: ... ===` 统计行（成功数随 `rand` 浮动属正常；v4 还应输出「总耗时 ≈ 最长任务耗时」） |
+| 🟢 基础 | `cd v5 && go build .` 通过，且 `go test ./... -cover` 中 scheduler 包覆盖率 ≥ 80%（本机实测 87.2%） |
+| 🟡 进阶 | 能说出 v5 为什么拆成 `main` 包 + `scheduler` 子包（跨包实现接口、可单测），并指出 `RealTask` 在 `v5/main.go` 里 |
+| 🟡 进阶 | 能解释 `go test -race` 在本机为何可能失败（无 gcc → cgo 不可用，`-race requires cgo`），并给出替代验证（`-count=10` 重复跑 + 互斥量自检） |
+| 🔴 挑战 | 不看代码，从零写出 `Scheduler.RunAll` 的「信号量限流 + WaitGroup + 结果 channel + close 收尾」四件套，`go vet` 零告警 |
+
+---
+
+*最后更新：2026-11-14*

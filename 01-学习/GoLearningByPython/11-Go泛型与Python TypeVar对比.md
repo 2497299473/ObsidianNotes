@@ -27,7 +27,7 @@ flowchart LR
     end
     subgraph GO["Go 泛型"]
         B1["func F[T any]"] --> B2["编译时实例化<br/>强制类型检查"]
-        B2 --> B3["零运行时开销<br/>（单态化优化）"]
+        B2 --> B3["部分单态化 + 字典<br/>（GC shape stenciling）"]
     end
     PY -.->|迁移| GO
 ```
@@ -191,8 +191,10 @@ age, ok := m.Get("Alice")  // age 是 int 类型，编译时保证
 
 ```go
 // 用 | 联合类型作为约束
+// 每个元素都带 ~：表示“底层类型是 int 的所有类型”，
+// 不带 ~ 时 type MyInt int 不满足该约束（MyInt 与 int 是不同类型，不能混用）
 type Number interface {
-    int | int64 | float32 | float64
+    ~int | ~int64 | ~float32 | ~float64
 }
 
 func Sum[T Number](values []T) T {
@@ -202,9 +204,13 @@ func Sum[T Number](values []T) T {
     }
     return total
 }
+
+// 带 ~ 后自定义类型也能用：
+// type MyInt int
+// Sum([]MyInt{1, 2})  // ✅
 ```
 
-**注释**：`int | float64` 是类型集联合，Python 的 `Union[int, float]` 是值联合，语义不同。
+**注释**：`int | float64` 是类型集联合，Python 的 `Union[int, float]` 是值联合，语义不同。带 `~` 是“底层类型匹配”，不带是“类型本身匹配”——自定义约束记得与本篇 §2 的 `Ordered` 保持一致，统一写 `~int | …`。
 
 ### 4.2 类型推断
 
@@ -232,7 +238,7 @@ strings := Map(nums, func(n int) string {
 | 维度 | 泛型 | interface |
 |------|------|-----------|
 | 类型安全 | 编译时保证 | 运行时断言 |
-| 性能 | 零开销（单态化） | interface 装箱开销 |
+| 性能 | 值类型算术/比较近零开销；方法调用/装箱/断言有字典查找代价 | interface 装箱开销 |
 | 灵活性 | 类型参数约束 | 鸭子类型 |
 | 适用场景 | 容器、算法、工具函数 | 多态、依赖注入、插件 |
 
@@ -249,7 +255,7 @@ strings := Map(nums, func(n int) string {
 | 类型检查时机 | 运行时（mypy 静态检查） | 编译时 |
 | 类型擦除 | 运行时保留 | 运行时擦除 |
 | 约束表达 | `bound` + `Protocol` | 接口约束 + 类型集 |
-| 性能 | 运行时开销 | 编译时单态化/GCShape |
+| 性能 | 运行时开销 | 部分单态化 + 字典（GCShape） |
 
 ---
 
@@ -265,6 +271,8 @@ strings := Map(nums, func(n int) string {
 > Go 1.22 的泛型方法不能引入新的类型参数（只能用 struct 的类型参数）。Python 的 Generic 方法可以引入新的 TypeVar。
 >
 > 🔄 **2026-09 更新**：Go 1.27 已支持泛型方法引入新的类型参数，本坑在 **1.27+ 环境不再成立**；1.22～1.26 环境仍需遵守。
+>
+> ⚠️ 注意不只是装新版 Go：`go.mod` 的 `go` 行也必须 ≥ 1.27（语言版本由 `go.mod` 决定，不看本机安装版本）。实测本机 1.27.4 + `go 1.22` 的模块仍报：`generic method requires go1.27 or later (-lang was set to go1.22; check go.mod)`。
 
 ---
 

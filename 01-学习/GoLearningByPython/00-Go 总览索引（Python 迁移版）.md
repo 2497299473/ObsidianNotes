@@ -59,8 +59,8 @@ flowchart TB
 |------|------|---------|---------|
 | 🐍 **Python 后端** | 熟悉 Flask/FastAPI，了解多线程 | 01→02→03→04→05→06→07→08（全部） | 29h |
 | 🔄 **Python 全栈** | 用过 Django/Flask 全栈，有异步编程经验 | 01 速览→02 速览→03→04→05 重点→06 速览→07→08 | 22-26h |
-| 🚀 **Python 数据科学** | 主要是 NumPy/Pandas/PyTorch | 全部学习路径，重点 05 并发编程和 04 接口设计 | 29h |
-| ⚡ **Python DevOps** | 熟悉脚本编写、系统运维 | 01→03→04→07（CLI/微服务场景） | 12-15h |
+| 🚀 **Python 数据科学** | 主要是 NumPy/Pandas/PyTorch | 01→02→03→04→05→11→12→13（跳过 07/09 的 Web 部分，09 只读 §3 JSON 与 §6 映射表） | 24h |
+| ⚡ **Python DevOps** | 熟悉脚本编写、系统运维 | 01→03→04→07（CLI/微服务场景；07 前速览 02 的 slice/map 小节，+30 分钟） | 12-15h |
 
 ### 🚀 背景速查：Python 经验可跳过的内容
 
@@ -132,7 +132,7 @@ flowchart TB
 | `int` | `int`, `int8`, `int16`, `int32`, `int64` | Go 有明确位宽，`int` 根据平台为 32/64 位 |
 | `float` | `float32`, `float64` | 无 `float` 统一类型，需显式指定精度 |
 | `bool` | `bool` | 一致 |
-| `None` | `nil` | Go 的 `nil` 有类型，不能直接赋值给不同 nil 类型 |
+| `None` | `nil` | Go 的 `nil` 是**无类型**值，类型来自上下文；只能赋给指针/map/slice/channel/func/interface，不同类型变量互不兼容 |
 | `list` | `[]T` (slice) | Go 有 array 和 slice 之分，slice 是动态的 |
 | `tuple` | 无直接等价 | 用 struct 或多返回值替代 |
 | `dict` | `map[K]V` | Go 的 map 是无序的，range 遍历顺序随机 |
@@ -147,14 +147,14 @@ flowchart TB
 | `self` | 接收者（receiver） | Go 方法定义在 struct 外部，用接收者关联 |
 | `@classmethod` | 无直接等价 | 可以用包级函数替代 |
 | `@staticmethod` | 包级函数 | 定义在包内而非 struct 上的函数 |
-| `@property` | 无 | 用 getter/setter 方法（GetXxx/SetXxx） |
+| `@property` | 无 | 用无前缀的读取方法（`Fahrenheit()`）+ `SetXxx()`，**不要**写 `GetFahrenheit()` |
 | `try/except` | `if err != nil` | Go 用显式错误返回值，无异常机制 |
 | `with` 上下文管理器 | `defer` | Go 的 `defer` 确保资源释放，语义不同 |
 | `yield` / 生成器 | `channel` + goroutine | 完全不同，channel 是并发通信机制 |
 | `asyncio` / `await` | goroutine + channel | Go 的并发模型是语言级的，无需 async/await |
 | `threading` | `goroutine` | goroutine 比线程轻量，由 Go 调度器管理 |
 | `GIL` | 无 GIL | Go 原生支持真并行 |
-| `multiprocessing` | goroutine / `runtime.GOMAXPROCS` | Go 通常不需要多进程 |
+| `multiprocessing` | goroutine | Go 通常不需要多进程；并行度由 `GOMAXPROCS` 控制（1.25+ 按 cgroup 配额自动设定） |
 | `pip install` | `go get` / `go mod download` | Go 用 go.mod 管理依赖 |
 | `venv` | `go mod`（项目级隔离） | Go 模块天然隔离，无需虚拟环境 |
 | `pyproject.toml` | `go.mod` + `go.sum` | 两个文件负责依赖管理 |
@@ -224,6 +224,18 @@ flowchart TB
 
 > [!tip] Go 的工具链体验比 Python 更统一
 > Go 的标准库非常完整，内置 `go test`、`go fmt`、`go vet`、`go doc`，不需要像 Python 那样安装 pytest、black、flake8、mypy 等多个第三方工具。对于习惯了 `python script.py` 的 Python 开发者，`go run main.go` 是最接近的体验。
+
+---
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 能在 60 秒内从本索引定位「channel 超时怎么写」对应的篇目与章节（答案：05 §3.2） |
+| 🟢 基础 | 能说出四个阶段各自的第一篇与阶段产出（第一周 01-03 打出基础、第二周 04-06 接口与并发、第三周 07-08 实战与面试、第四周 09-13 标准库/性能/泛型/FFI） |
+| 🟡 进阶 | 能选一条角色路线，把该路线各篇 `estimated_hours` 相加，结果与表中标注学时一致（如 DevOps 路线 2+4+4+4=14h，落在 12-15h 区间） |
+| 🟡 进阶 | 能从「概念映射速查表」挑 10 个 Python 概念翻成 Go，并指出其中 3 个「无直接等价」（如 `tuple`、`@property`、装饰器） |
+| 🔴 挑战 | 能排出自己的 4 周 + 毕业项目计划表（周次 / 篇目 / 检查点 / 项目版本 / 每周自评薄弱点），并标出 2 个需要回炉的篇目 |
 
 ---
 

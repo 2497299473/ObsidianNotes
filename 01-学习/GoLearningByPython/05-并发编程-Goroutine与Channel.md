@@ -45,9 +45,9 @@ flowchart LR
 ```mermaid
 flowchart TB
     subgraph G["G — Goroutine"]
-        G1["goroutine #1<br/>2KB 初始栈"]
-        G2["goroutine #2<br/>2KB 初始栈"]
-        G3["goroutine #N<br/>2KB 初始栈"]
+        G1["goroutine #1<br/>初始栈 2KB(Linux)/8KB(Windows)"]
+        G2["goroutine #2<br/>初始栈 2KB(Linux)/8KB(Windows)"]
+        G3["goroutine #N<br/>初始栈 2KB(Linux)/8KB(Windows)"]
     end
 
     subgraph P["P — 逻辑处理器"]
@@ -77,7 +77,7 @@ flowchart TB
 ```
 
 > [!tip] 对比 Python asyncio
-> Python asyncio 是**单线程事件循环**——所有协程在一个线程上轮流执行，无法利用多核。Go 的 GMP 模型将 goroutine 分发到多个 M（OS 线程）上**真正并行**执行。P 是逻辑处理器，数量 = `GOMAXPROCS`（默认 = CPU 核心数）。当某个 P 的本地队列空了，会从全局队列或其他 P **偷取**（work stealing）goroutine。
+> Python asyncio 是**单线程事件循环**——所有协程在一个线程上轮流执行，无法利用多核。Go 的 GMP 模型将 goroutine 分发到多个 M（OS 线程）上**真正并行**执行。P 是逻辑处理器，数量 = `GOMAXPROCS`（Go 1.25+ 默认按 CPU 亲和性与 cgroup 配额自动设定并动态更新，一般不要手工覆盖）。当某个 P 的本地队列空了，会从全局队列或其他 P **偷取**（work stealing）goroutine。
 
 ---
 
@@ -136,7 +136,7 @@ func main() {
 | 关键字 | `async def` / `await` | `go` |
 | 调度模型 | 事件循环（单线程） | 运行时调度器（多线程） |
 | 多核利用 | 否（单线程） | 是（真并行） |
-| 创建开销 | 低 | 极低（约 2KB 栈） |
+| 创建开销 | 低 | 极低（初始栈 Linux 2KB / Windows 8KB，可动态增长） |
 | 并发数量 | 数千 | 数万到数十万 |
 | 通信方式 | `asyncio.Queue` | channel |
 | GIL | 受限制 | 无 GIL |
@@ -144,7 +144,7 @@ func main() {
 ### 1.2 goroutine 原理
 
 ```go
-// 每个 goroutine 初始栈约 2KB，可动态增长
+// 每个 goroutine 初始栈：Linux 2KB、Windows 8KB（stackMin 2KB + stackSystem 4KB 再向上取整），可动态增长
 // 一个 Go 程序可以轻松创建数十万个 goroutine
 
 func main() {
@@ -159,7 +159,7 @@ func main() {
 ```
 
 > [!tip] Python 中的对比
-> Python 创建 10 万个线程是不可能的（每个线程约 8MB 栈）。goroutine 的轻量性使得 Go 非常适合高并发场景。
+> Python 的线程栈用平台默认值（Windows 约 1MB、Linux 约 8MB，即 `ulimit -s`），实测创建数百到数千个线程可行，**十万级不现实**（内存与调度开销都撑不住）。goroutine 的轻量性（Linux 2KB / Windows 8KB 起步）使得 Go 非常适合高并发场景。
 
 ---
 
@@ -207,16 +207,21 @@ func main() {
 ### 2.2 无缓冲 channel vs 有缓冲 channel
 
 ```go
-// 无缓冲 channel：发送和接收必须同时准备好
-ch := make(chan int)        // 无缓冲
-// ch <- 1  // 阻塞，直到有 goroutine 从 ch 读取
+// 方案 A：无缓冲 channel——发送与接收必须同时就绪（同步会合）
+ch := make(chan int)                        // 无缓冲
+go func() { fmt.Println("收到:", <-ch) }()  // 先有接收者
+ch <- 1                                     // 发送：与接收方会合后才返回
+```
 
-// 有缓冲 channel：可以缓存一定数量的值
-ch := make(chan int, 3)     // 缓冲区大小为 3
-ch <- 1  // 不阻塞（缓冲区未满）
-ch <- 2
-ch <- 3
-// ch <- 4  // 阻塞！缓冲区满了
+```go
+// 方案 B：有缓冲 channel——缓冲未满时发送不阻塞
+// 另起变量名 chBuf：同一作用域再写一次 ch := 会报 no new variables on left side of :=
+chBuf := make(chan int, 3)  // 缓冲区大小为 3
+chBuf <- 1                  // 不阻塞（缓冲区未满）
+chBuf <- 2
+chBuf <- 3
+fmt.Println(len(chBuf), cap(chBuf))  // 3 3
+// chBuf <- 4  // 阻塞！缓冲区满了
 ```
 
 | 类型 | 创建 | 行为 | 使用场景 |
@@ -338,16 +343,18 @@ func fetchWithTimeout(url string) (string, error) {
     }
 }
 
-// 优雅退出
-func worker(done <-chan struct{}) {
+// 优雅退出：阻塞等待 done，不要用 default 轮询（那是带 100ms 延迟的空转）
+func worker(jobs <-chan int, done <-chan struct{}) {
     for {
         select {
         case <-done:
             fmt.Println("收到退出信号")
             return
-        default:
-            // 执行工作
-            time.Sleep(100 * time.Millisecond)
+        case job, ok := <-jobs:
+            if !ok {  // jobs 已关闭，没有新任务了
+                return
+            }
+            fmt.Printf("处理 job %d\n", job)
         }
     }
 }
@@ -710,29 +717,22 @@ func runWithTimeout(ctx context.Context, task func() string) (string, error) {
 }
 
 func main() {
-    // 创建 1 秒超时的 context
-    ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-    defer cancel()  // 确保释放资源
-
-    // 任务 1：0.5 秒，应该成功
-    result, err := runWithTimeout(ctx, func() string {
-        return slowTask(1, 500*time.Millisecond)
-    })
-    if err != nil {
-        fmt.Println("任务 1 失败:", err)
-    } else {
-        fmt.Println("任务 1 成功:", result)
+    // 每个任务各自一个 1 秒预算。
+    // 注意：若像"共享一个 ctx"那样写，任务 2 只会剩 ~0.5s，
+    // 它的超时就不是"2s > 1s"，而是"预算被任务 1 吃掉了"——归因完全不同。
+    runTask := func(id int, d time.Duration) {
+        ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+        defer cancel()  // 确保释放资源
+        result, err := runWithTimeout(ctx, func() string { return slowTask(id, d) })
+        if err != nil {
+            fmt.Printf("任务 %d 失败: %v\n", id, err)
+            return
+        }
+        fmt.Printf("任务 %d 成功: %s\n", id, result)
     }
 
-    // 任务 2：2 秒，应该超时
-    result, err = runWithTimeout(ctx, func() string {
-        return slowTask(2, 2*time.Second)
-    })
-    if err != nil {
-        fmt.Println("任务 2 失败:", err)
-    } else {
-        fmt.Println("任务 2 成功:", result)
-    }
+    runTask(1, 500*time.Millisecond)  // 0.5s < 1s → 成功
+    runTask(2, 2*time.Second)         // 2s > 1s → 超时
 }
 ```
 
