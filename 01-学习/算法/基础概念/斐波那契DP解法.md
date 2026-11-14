@@ -37,10 +37,10 @@ lark_doc_url: https://my.feishu.cn/docx/PziAdUExuoafbQxqVpXcSRJnnCc
 斐波那契数列：
 
 $$
-F(1)=1,\quad F(2)=1,\quad F(n)=F(n-1)+F(n-2)
+F(0)=0,\quad F(1)=1,\quad F(n)=F(n-1)+F(n-2)\ (n \ge 2)
 $$
 
-求 $F(6)$。
+求 $F(6)$（= 8）。
 
 ---
 
@@ -69,8 +69,8 @@ flowchart TD
 ```python
 # ❌ 暴力递归：O(2^n)，指数爆炸
 def fib_brute(n):
-    if n <= 2:
-        return 1
+    if n <= 1:          # F(0)=0, F(1)=1
+        return n
     return fib_brute(n - 1) + fib_brute(n - 2)
 ```
 
@@ -84,11 +84,12 @@ def fib_brute(n):
 
 ```mermaid
 flowchart LR
-    DP1["dp[1] = 1"] --> DP2["dp[2] = 1"]
+    DP0["dp[0] = 0"] --> DP1["dp[1] = 1"]
+    DP1 --> DP2["dp[2] = 1+0 = 1"]
     DP2 --> DP3["dp[3] = 1+1 = 2"]
-    DP3 --> DP4["dp[4] = 1+2 = 3"]
-    DP4 --> DP5["dp[5] = 2+3 = 5"]
-    DP5 --> DP6["🎯 dp[6] = 3+5 = 8 ✓"]
+    DP3 --> DP4["dp[4] = 2+1 = 3"]
+    DP4 --> DP5["dp[5] = 3+2 = 5"]
+    DP5 --> DP6["🎯 dp[6] = 5+3 = 8 ✓"]
 ```
 
 ### 代码
@@ -96,11 +97,11 @@ flowchart LR
 ```python
 # ✅ DP：O(n)，每个子问题只算一次
 def fib_dp(n):
-    if n <= 2:
-        return 1  # n=1/2 直接返回，避免 dp[2] 越界
+    if n <= 1:
+        return n      # F(0)=0, F(1)=1；同时也避开了 n=0/1 时的建表越界
     dp = [0] * (n + 1)
-    dp[1] = dp[2] = 1
-    for i in range(3, n + 1):
+    dp[1] = 1
+    for i in range(2, n + 1):
         dp[i] = dp[i - 1] + dp[i - 2]
     return dp[n]
 ```
@@ -110,10 +111,10 @@ def fib_dp(n):
 ```python
 # ✅ DP 空间优化：O(1)
 def fib_dp_opt(n):
-    if n <= 2:
-        return 1
-    prev2, prev1 = 1, 1  # dp[1], dp[2]
-    for i in range(3, n + 1):
+    if n <= 1:
+        return n
+    prev2, prev1 = 0, 1      # F(0), F(1)
+    for i in range(2, n + 1):
         curr = prev2 + prev1
         prev2, prev1 = prev1, curr
     return prev1
@@ -124,20 +125,20 @@ def fib_dp_opt(n):
 > 省的不是空间（O(1) 已到底），省的是**不必要的时间**——消费 k 个值就不用算剩下 n-k 个。
 
 ```python
-# ✅ 生成器：空间仍是 O(1)，但支持按需消费 + 无限序列
+# ✅ 生成器：空间仍是 O(1)，但支持按需消费 + 无限序列（产出 F(0)..F(n)）
 def fib_gen(n):
-    prev2, prev1 = 1, 1
-    yield prev2          # F(1)
-    if n >= 2:
-        yield prev1      # F(2)
-    for i in range(3, n + 1):
+    prev2, prev1 = 0, 1   # F(0), F(1)
+    yield prev2           # F(0) = 0
+    if n >= 1:
+        yield prev1       # F(1) = 1
+    for i in range(2, n + 1):
         curr = prev2 + prev1
         yield curr
         prev2, prev1 = prev1, curr
 
-# 无限版本：永不停止的斐波那契流
+# 无限版本：永不停止的斐波那契流 0, 1, 1, 2, 3, 5, ...
 def fib_infinite():
-    prev2, prev1 = 1, 1
+    prev2, prev1 = 0, 1
     yield prev2
     yield prev1
     while True:
@@ -166,7 +167,7 @@ def fib_infinite():
 |:--|:--|:--|
 | **状态定义** | `dp[i]` 代表什么？ | `dp[i]` = 第 i 个斐波那契数 |
 | **状态转移方程** | 如何从小问题推大问题？ | `dp[i] = dp[i-1] + dp[i-2]` |
-| **初始条件** | 最小的问题的答案是什么？ | `dp[1] = 1, dp[2] = 1` |
+| **初始条件** | 最小的问题的答案是什么？ | `dp[0] = 0, dp[1] = 1` |
 
 ---
 
@@ -202,13 +203,23 @@ def fib_memo(n, memo=None):
         memo = {}  # 不能用可变默认参数 memo={}，否则缓存跨调用共享
     if n in memo:
         return memo[n]
-    if n <= 2:
-        return 1
+    if n <= 1:
+        return n   # F(0)=0, F(1)=1
     memo[n] = fib_memo(n - 1, memo) + fib_memo(n - 2, memo)
     return memo[n]
 ```
 
 > 记忆化搜索 = DFS 的递归结构 + DP 的缓存思想。是二者之间的桥梁。
+
+---
+
+## 🎯 本文学完自检
+
+| 层次 | 检查项 |
+|------|--------|
+| 🟢 基础 | 能指出重复计算发生在哪（fib(4) 算 2 次、fib(3) 算 3 次），并说出本篇口径 F(0)=0、F(1)=1 |
+| 🟡 进阶 | 能默写滚动变量版与记忆化版，n=0..100 与标准斐波那契逐项一致 |
+| 🔴 挑战 | 能写生成器版并说出「按需消费」的真实场景（只要前 k 项 / 无限序列） |
 
 ---
 
